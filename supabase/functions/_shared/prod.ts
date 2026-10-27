@@ -4,6 +4,7 @@
  */
 import { SupabaseDb } from './dbSupabase.ts'
 import type { Deps, Mail, Mailer, Storage } from './deps.ts'
+import { R2Storage } from './storageR2.ts'
 import { SupabaseStorage } from './storageSupabase.ts'
 
 function env(name: string, required = true): string {
@@ -12,23 +13,50 @@ function env(name: string, required = true): string {
   return value
 }
 
-/** Stockage : bucket privé Supabase Storage (seule solution retenue). */
+/**
+ * Stockage prioritaire : Cloudflare R2 (fichiers jusqu’à 1 Go).
+ * Secours : Supabase Storage (plafond bas sur l’offre gratuite ~50 Mo).
+ */
 function buildStorage(): Storage {
+  const accountId = env('R2_ACCOUNT_ID', false)
+  const accessKeyId = env('R2_ACCESS_KEY_ID', false)
+  const secretAccessKey = env('R2_SECRET_ACCESS_KEY', false)
+  const bucket = env('R2_BUCKET', false) || env('TRANSFER_BUCKET', false) || 'orion-transfer'
+  if (accountId && accessKeyId && secretAccessKey) {
+    console.error('[transfer] stockage=R2 bucket=' + bucket)
+    return new R2Storage({
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      endpoint: env('R2_ENDPOINT', false) || undefined,
+    })
+  }
+  console.error('[transfer] stockage=Supabase Storage (R2 non configuré) — gros fichiers risquent d’échouer')
   return new SupabaseStorage({
     url: env('SUPABASE_URL'),
     serviceKey: env('SUPABASE_SERVICE_ROLE_KEY'),
-    bucket: env('TRANSFER_BUCKET', false) || 'orion-transfer',
+    bucket,
   })
 }
 
 class ResendMailer implements Mailer {
-  constructor(private apiKey: string, private from: string) {}
+  constructor(
+    private apiKey: string,
+    private from: string,
+  ) {}
 
   async send(mail: Mail): Promise<void> {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: this.from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+      body: JSON.stringify({
+        from: this.from,
+        to: [mail.to],
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      }),
     })
     if (!res.ok) throw new Error(`resend_${res.status}`)
   }
@@ -54,7 +82,10 @@ export function prodDeps(): Deps {
     mailer: resendKey ? new ResendMailer(resendKey, env('MAIL_FROM')) : new SkipMailer(),
     config: {
       appUrl,
-      allowedOrigins: (env('ALLOWED_ORIGINS', false) || appUrl).split(',').map((o) => o.trim()).filter(Boolean),
+      allowedOrigins: (env('ALLOWED_ORIGINS', false) || appUrl)
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
       cronSecret: env('CRON_SECRET', false) || null,
       mailFrom: env('MAIL_FROM', false),
     },

@@ -7,7 +7,8 @@ import { bearer, errorResponse, json, readJson, uuidParam, corsHeaders } from '.
 import { detectExecutable, sniffType } from './fileRules.ts'
 import { invitationMail } from './mailTemplate.ts'
 
-const UPLOAD_URL_SECONDS = 15 * 60
+/** 2 h : laisse le temps d’envoyer jusqu’à 1 Go sur une connexion moyenne. */
+const UPLOAD_URL_SECONDS = 2 * 60 * 60
 const DOWNLOAD_URL_SECONDS = 2 * 60
 
 type Handler = (req: Request, deps: Deps) => Promise<Response>

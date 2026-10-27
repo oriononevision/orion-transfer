@@ -271,7 +271,24 @@ export function uploadToSignedUrl(
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total)
     }
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new TransferError('upload_failed')))
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve()
+        return
+      }
+      const body = (xhr.responseText || '').toLowerCase()
+      if (
+        xhr.status === 413 ||
+        body.includes('payload too large') ||
+        body.includes('entitytooLarge') ||
+        body.includes('maximum allowed size') ||
+        body.includes('object_exceeded')
+      ) {
+        reject(new TransferError('upload_too_large'))
+        return
+      }
+      reject(new TransferError('upload_failed'))
+    }
     xhr.onerror = () => reject(new TransferError('network'))
     xhr.onabort = () => reject(new TransferError('aborted'))
     signal?.addEventListener('abort', () => xhr.abort(), { once: true })

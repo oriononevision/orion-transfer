@@ -218,7 +218,9 @@ export default function SendPanel({
       await uploadToSignedUrl(url, item.file, (p) => update(item.key, { progress: p }))
       update(item.key, { state: 'done', progress: 1 })
       return true
-    } catch {
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'upload_failed'
+      setError(code === 'upload_too_large' || code === 'upload_failed' || code === 'network' ? code : 'upload_failed')
       update(item.key, { state: 'error' })
       return false
     }

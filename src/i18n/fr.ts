@@ -172,8 +172,12 @@ export const fr = {
   'error.file_too_large': 'Un des fichiers dépasse 1 Go.',
   'error.invalid_file_name': 'Un des noms de fichier est invalide.',
   'error.blocked_file_type': 'Les programmes d’installation ne peuvent pas être envoyés.',
-  'error.transfer_too_large': 'L’envoi dépasse 500 Mo.',
-  'error.storage_quota_exceeded': 'Votre espace de stockage (500 Mo) est plein. Supprimez d’anciens transferts ou attendez leur expiration.',
+  'error.transfer_too_large': 'L’envoi dépasse 1 Go.',
+  'error.storage_quota_exceeded':
+    'Votre espace de stockage (2 Go) est plein. Supprimez d’anciens transferts ou attendez leur expiration.',
+  'error.upload_too_large':
+    'Le stockage a refusé ce fichier (trop volumineux). Vérifiez que Cloudflare R2 est configuré pour ORION Transfer.',
+  'error.upload_failed': 'Échec du dépôt du fichier. Réessayez ; si le problème continue, contactez le support.',
   'error.not_found': 'Ce transfert n’est plus accessible.',
   'error.not_available': 'Ce fichier n’est plus disponible.',
   'error.network': 'Impossible de joindre le serveur. Vérifiez votre connexion.',
