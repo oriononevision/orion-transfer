@@ -29,7 +29,7 @@ Les étapes marquées **Associé** touchent la base Supabase partagée avec ORIO
 ## 3. Cloudflare R2 — stocker les fichiers (10 min)
 
 1. Créez un compte sur [cloudflare.com](https://dash.cloudflare.com) et activez **R2**. Vérifiez les conditions de l'offre gratuite au moment de l'inscription.
-2. **R2 → Create bucket** : nom `orion-transfer`. Si l'option existe, choisissez une localisation ou une juridiction en Europe. Laissez le bucket **privé** : ne lui donnez aucun accès public.
+2. **R2 → Create bucket** : nom `orion-transfer`. Dans **Location**, choisissez **Specify jurisdiction → European Union (EU)** : les fichiers restent alors dans l'Union européenne. Laissez le bucket **privé** : ne lui donnez aucun accès public.
 3. Dans le bucket, ouvrez **Settings → CORS policy** et collez (en remplaçant ADRESSE) :
    ```json
    [
@@ -68,6 +68,7 @@ Dans le dépôt, ouvrez **Settings → Secrets and variables → Actions → New
 | `R2_ACCESS_KEY_ID` | Access Key ID R2 |
 | `R2_SECRET_ACCESS_KEY` | Secret Access Key R2 |
 | `R2_BUCKET` | `orion-transfer` |
+| `R2_ENDPOINT` | `https://<Account ID>.eu.r2.cloudflarestorage.com` (seulement pour un bucket en juridiction UE) |
 | `APP_URL` | ADRESSE |
 | `ALLOWED_ORIGINS` | `ADRESSE,http://localhost:5175` |
 | `CRON_SECRET` | une longue chaîne aléatoire (par exemple générée par un gestionnaire de mots de passe) |
