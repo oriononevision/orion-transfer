@@ -176,7 +176,7 @@ export const fr = {
   'error.storage_quota_exceeded':
     'Votre espace de stockage (2 Go) est plein. Supprimez d’anciens transferts ou attendez leur expiration.',
   'error.upload_too_large':
-    'Le stockage a refusé ce fichier (trop volumineux). Vérifiez que Cloudflare R2 est configuré pour ORION Transfer.',
+    'Le stockage a refusé un morceau du fichier. Réessayez ; si le problème continue, contactez le support.',
   'error.upload_failed': 'Échec du dépôt du fichier. Réessayez ; si le problème continue, contactez le support.',
   'error.not_found': 'Ce transfert n’est plus accessible.',
   'error.not_available': 'Ce fichier n’est plus disponible.',

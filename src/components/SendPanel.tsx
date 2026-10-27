@@ -4,8 +4,10 @@ import {
   completeTransfer,
   createTransfer,
   searchOrionMembers,
+  uploadFileParts,
   uploadToSignedUrl,
   type OrionMember,
+  type UploadChunk,
 } from '../api/transfers'
 import { errorMessage, formatLongDate, t } from '../i18n'
 import { checkSelection, formatBytes, LIMITS, normalizeEmail, type FileIssue } from '../lib/fileRules'
@@ -77,7 +79,7 @@ export default function SendPanel({
   const [phase, setPhase] = useState<Phase>('edit')
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
-  const uploadsRef = useRef<Map<string, string>>(new Map())
+  const uploadsRef = useRef<Map<string, { url?: string; chunks?: UploadChunk[] }>>(new Map())
   const transferIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -211,16 +213,30 @@ export default function SendPanel({
     setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)))
 
   const uploadOne = async (item: Item) => {
-    const url = uploadsRef.current.get(item.key)
-    if (!url) throw new Error('unknown')
+    const plan = uploadsRef.current.get(item.key)
+    if (!plan) throw new Error('unknown')
     update(item.key, { state: 'uploading', progress: 0 })
     try {
-      await uploadToSignedUrl(url, item.file, (p) => update(item.key, { progress: p }))
+      if (plan.chunks?.length) {
+        await uploadFileParts(
+          item.file,
+          plan.chunks.map((c) => ({ url: c.url, start: c.start, end: c.end })),
+          (p) => update(item.key, { progress: p }),
+        )
+      } else if (plan.url) {
+        await uploadToSignedUrl(plan.url, item.file, (p) => update(item.key, { progress: p }))
+      } else {
+        throw new Error('upload_failed')
+      }
       update(item.key, { state: 'done', progress: 1 })
       return true
     } catch (err) {
       const code = err instanceof Error ? err.message : 'upload_failed'
-      setError(code === 'upload_too_large' || code === 'upload_failed' || code === 'network' ? code : 'upload_failed')
+      setError(
+        code === 'upload_too_large' || code === 'upload_failed' || code === 'network'
+          ? code
+          : 'upload_failed',
+      )
       update(item.key, { state: 'error' })
       return false
     }
@@ -260,7 +276,12 @@ export default function SendPanel({
       // Le serveur renvoie les fichiers dans l'ordre envoyé.
       created.uploads.forEach((u, index) => {
         const item = items[index]
-        if (item) uploadsRef.current.set(item.key, u.url)
+        if (item) {
+          uploadsRef.current.set(item.key, {
+            url: u.url,
+            chunks: u.chunks,
+          })
+        }
       })
       if (await runUploads(items)) await finish()
     } catch (err) {

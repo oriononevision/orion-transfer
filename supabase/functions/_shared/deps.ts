@@ -57,6 +57,7 @@ export interface Storage {
   size(key: string): Promise<number | null>
   /** Premiers octets de l'objet. */
   readHead(key: string, bytes: number): Promise<Uint8Array>
+  /** Efface l’objet et, le cas échéant, ses morceaux `{key}/c/*`. */
   remove(key: string): Promise<void>
 }
 

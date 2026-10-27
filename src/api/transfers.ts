@@ -212,10 +212,25 @@ export async function searchOrionMembers(query = '', limit = 12): Promise<OrionM
 
 export type NewFile = { name: string; size: number; type?: string; path?: string }
 
+export type UploadChunk = {
+  index: number
+  start: number
+  end: number
+  url: string
+}
+
 export type CreatedTransfer = {
   transfer_id: string
   expires_at: string
-  uploads: Array<{ file_id: string; name: string; url: string }>
+  uploads: Array<{
+    file_id: string
+    name: string
+    size?: number
+    /** Nouveau format : dépôt découpé. */
+    chunks?: UploadChunk[]
+    /** Ancien format (un seul PUT). */
+    url?: string
+  }>
 }
 
 export function createTransfer(input: {
@@ -245,11 +260,35 @@ export function completeTransfer(transferId: string): Promise<CompletedTransfer>
 
 export async function downloadFile(fileId: string): Promise<void> {
   if (IS_DEMO) return demo.downloadFile(fileId)
-  const { url } = await invoke<{ url: string }>('transfer-download', { file_id: fileId })
-  // URL signée de courte durée, servie depuis le domaine du stockage avec
-  // « Content-Disposition: attachment » : le fichier n'est jamais affiché ni
-  // exécuté dans l'application.
-  window.location.assign(url)
+  const payload = await invoke<{
+    url?: string
+    name?: string
+    chunks?: Array<{ index: number; url: string }>
+  }>('transfer-download', { file_id: fileId })
+
+  if (payload.url) {
+    window.location.assign(payload.url)
+    return
+  }
+
+  if (!payload.chunks?.length) throw new TransferError('not_available')
+
+  const parts: Blob[] = []
+  for (const chunk of [...payload.chunks].sort((a, b) => a.index - b.index)) {
+    const res = await fetch(chunk.url)
+    if (!res.ok) throw new TransferError('network')
+    parts.push(await res.blob())
+  }
+  const blob = new Blob(parts, { type: 'application/octet-stream' })
+  const href = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = payload.name || 'fichier'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(href)
 }
 
 /**
@@ -280,7 +319,7 @@ export function uploadToSignedUrl(
       if (
         xhr.status === 413 ||
         body.includes('payload too large') ||
-        body.includes('entitytooLarge') ||
+        body.includes('entitytoolarge') ||
         body.includes('maximum allowed size') ||
         body.includes('object_exceeded')
       ) {
@@ -294,6 +333,29 @@ export function uploadToSignedUrl(
     signal?.addEventListener('abort', () => xhr.abort(), { once: true })
     xhr.send(file)
   })
+}
+
+/** Dépose un fichier entier, éventuellement découpé en plusieurs URLs signées. */
+export async function uploadFileParts(
+  file: Blob,
+  parts: Array<{ url: string; start: number; end: number }>,
+  onProgress: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (parts.length === 0) throw new TransferError('upload_failed')
+  let uploaded = 0
+  const total = file.size || parts.reduce((s, p) => s + Math.max(0, p.end - p.start), 0)
+  for (const part of parts) {
+    const slice = file.slice(part.start, part.end)
+    await uploadToSignedUrl(
+      part.url,
+      slice,
+      (p) => onProgress(total > 0 ? (uploaded + p * slice.size) / total : 1),
+      signal,
+    )
+    uploaded += slice.size
+    onProgress(total > 0 ? uploaded / total : 1)
+  }
 }
 
 // ---------------------------------------------------------------------------

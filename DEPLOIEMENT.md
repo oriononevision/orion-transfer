@@ -30,7 +30,7 @@ Les étapes marquées **Associé** touchent la base Supabase partagée avec ORIO
 
 Rien à faire à la main : la migration crée elle-même le bucket **privé** `orion-transfer` dans Supabase Storage. Les fichiers ne sortent que par des liens signés de courte durée.
 
-Les envois jusqu’à **1 Go** passent par **Cloudflare R2** (obligatoire). Sans les secrets R2, Supabase Storage est utilisé en secours et refuse typiquement les fichiers > ~50 Mo en fin d’upload.
+Les envois jusqu’à **1 Go** utilisent Supabase Storage : chaque fichier est découpé automatiquement en morceaux < 50 Mo (plafond de l’offre gratuite), puis reassembled au téléchargement.
 
 ## 4. Resend — e-mails d'invitation (facultatif au début)
 

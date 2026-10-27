@@ -3,8 +3,8 @@ import type { Storage } from './deps.ts'
 import { contentDisposition } from './storageR2.ts'
 
 /**
- * Stockage via Supabase Storage (bucket privé) — secours quand R2 n’est pas configuré.
- * URLs signées de courte durée ; dépôt direct depuis le navigateur.
+ * Stockage via Supabase Storage (bucket privé).
+ * Les gros fichiers sont découpés en morceaux `{key}/c/{i}` côté client.
  */
 export class SupabaseStorage implements Storage {
   private admin: SupabaseClient
@@ -23,7 +23,7 @@ export class SupabaseStorage implements Storage {
 
   private objectUrl(key: string): string {
     const path = key.split('/').map(encodeURIComponent).join('/')
-    return `${this.url}/storage/v1/object/authenticated/${encodeURIComponent(this.bucket)}/${path}`
+    return `${this.url}/storage/v1/object/${encodeURIComponent(this.bucket)}/${path}`
   }
 
   private authHeaders(): Record<string, string> {
@@ -77,7 +77,15 @@ export class SupabaseStorage implements Storage {
   }
 
   async remove(key: string): Promise<void> {
-    const { error } = await this.admin.storage.from(this.bucket).remove([key])
+    const toDelete = [key]
+    const folder = `${key}/c`
+    const { data: listed } = await this.admin.storage.from(this.bucket).list(folder, { limit: 1000 })
+    if (listed?.length) {
+      for (const row of listed) {
+        if (row.name) toDelete.push(`${folder}/${row.name}`)
+      }
+    }
+    const { error } = await this.admin.storage.from(this.bucket).remove(toDelete)
     if (error && !/not found|404/i.test(error.message)) throw new Error(error.message)
   }
 }

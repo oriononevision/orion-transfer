@@ -4,7 +4,6 @@
  */
 import { SupabaseDb } from './dbSupabase.ts'
 import type { Deps, Mail, Mailer, Storage } from './deps.ts'
-import { R2Storage } from './storageR2.ts'
 import { SupabaseStorage } from './storageSupabase.ts'
 
 function env(name: string, required = true): string {
@@ -13,30 +12,12 @@ function env(name: string, required = true): string {
   return value
 }
 
-/**
- * Stockage prioritaire : Cloudflare R2 (fichiers jusqu’à 1 Go).
- * Secours : Supabase Storage (plafond bas sur l’offre gratuite ~50 Mo).
- */
+/** Stockage : bucket privé Supabase (gros fichiers = morceaux côté client). */
 function buildStorage(): Storage {
-  const accountId = env('R2_ACCOUNT_ID', false)
-  const accessKeyId = env('R2_ACCESS_KEY_ID', false)
-  const secretAccessKey = env('R2_SECRET_ACCESS_KEY', false)
-  const bucket = env('R2_BUCKET', false) || env('TRANSFER_BUCKET', false) || 'orion-transfer'
-  if (accountId && accessKeyId && secretAccessKey) {
-    console.error('[transfer] stockage=R2 bucket=' + bucket)
-    return new R2Storage({
-      accountId,
-      accessKeyId,
-      secretAccessKey,
-      bucket,
-      endpoint: env('R2_ENDPOINT', false) || undefined,
-    })
-  }
-  console.error('[transfer] stockage=Supabase Storage (R2 non configuré) — gros fichiers risquent d’échouer')
   return new SupabaseStorage({
     url: env('SUPABASE_URL'),
     serviceKey: env('SUPABASE_SERVICE_ROLE_KEY'),
-    bucket,
+    bucket: env('TRANSFER_BUCKET', false) || 'orion-transfer',
   })
 }
 
@@ -62,7 +43,6 @@ class ResendMailer implements Mailer {
   }
 }
 
-/** Sans clé Resend (développement), les e-mails ne partent pas : on le signale. */
 class SkipMailer implements Mailer {
   send(): Promise<void> {
     console.warn('[transfer] RESEND_API_KEY absent : e-mail non envoyé')
@@ -89,7 +69,6 @@ export function prodDeps(): Deps {
       cronSecret: env('CRON_SECRET', false) || null,
       mailFrom: env('MAIL_FROM', false),
     },
-    // Journal minimal : jamais de jeton, d'URL signée ni de contenu de fichier.
     log: (msg, data) => console.error(`[transfer] ${msg}`, data ? JSON.stringify(data) : ''),
   }
   return cached

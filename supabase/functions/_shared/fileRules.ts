@@ -11,9 +11,12 @@
 
 const MB = 1024 * 1024
 
+/** Aligné sur `_shared/chunks.ts` — morceaux sous la limite Storage ~50 Mo. */
+export const STORAGE_CHUNK_BYTES = 45 * MB
+
 /**
  * Doit rester identique à transfer.limits() côté base.
- * 1 Go max par fichier et par envoi (bucket Supabase file_size_limit aligné).
+ * 1 Go max par fichier et par envoi (dépôt découpé en morceaux côté client).
  */
 export const LIMITS = {
   maxFileBytes: 1024 * MB,

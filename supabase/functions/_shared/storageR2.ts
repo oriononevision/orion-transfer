@@ -61,6 +61,12 @@ export class R2Storage implements Storage {
   async remove(key: string): Promise<void> {
     const res = await this.client.fetch(this.url(key), { method: 'DELETE' })
     if (!res.ok && res.status !== 404) throw new Error(`storage_delete_${res.status}`)
+    // Morceaux éventuels (même schéma que Supabase Storage).
+    for (let i = 0; i < 64; i += 1) {
+      const part = await this.client.fetch(this.url(`${key}/c/${i}`), { method: 'DELETE' })
+      if (part.status === 404) break
+      if (!part.ok) throw new Error(`storage_delete_${part.status}`)
+    }
   }
 }
 

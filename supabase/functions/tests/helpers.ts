@@ -98,6 +98,9 @@ export class MemoryStorage implements Storage {
 
   remove(key: string) {
     this.objects.delete(key)
+    for (const k of [...this.objects.keys()]) {
+      if (k.startsWith(`${key}/c/`)) this.objects.delete(k)
+    }
     return Promise.resolve()
   }
 }

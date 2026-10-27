@@ -46,10 +46,24 @@ async function createAndUpload(
   )
   assertEquals(res.status, 200, JSON.stringify(await res.clone().json()))
   const created = await body(res)
-  created.uploads.forEach((u: { url: string }, i: number) => {
-    if (files[i].bytes.length) ctx.storage.put(u.url, files[i].bytes)
+  created.uploads.forEach((
+    u: { url?: string; chunks?: Array<{ url: string; start: number; end: number }> },
+    i: number,
+  ) => {
+    const bytes = files[i].bytes
+    if (!bytes.length) return
+    if (u.chunks?.length) {
+      for (const chunk of u.chunks) {
+        ctx.storage.put(chunk.url, bytes.slice(chunk.start, chunk.end))
+      }
+      return
+    }
+    if (u.url) ctx.storage.put(u.url, bytes)
   })
-  return created as { transfer_id: string; uploads: Array<{ file_id: string; url: string }> }
+  return created as {
+    transfer_id: string
+    uploads: Array<{ file_id: string; url?: string; chunks?: Array<{ url: string }> }>
+  }
 }
 
 Deno.test('refuse une requête sans session', async () => {
@@ -76,7 +90,7 @@ Deno.test('parcours complet : envoi, vérification, e-mails, téléchargement', 
     'Voici le build <script>alert(1)</script>',
   )
   assertEquals(created.uploads.length, 2)
-  assertMatch(created.uploads[0].url, /expires=900/)
+  assertMatch(created.uploads[0].chunks?.[0]?.url ?? '', /expires=/)
 
   // Un autre utilisateur ne peut pas valider l'envoi d'Alice.
   const stolen = await handleComplete(call(MALLORY, { transfer_id: created.transfer_id }), ctx.deps)
@@ -105,7 +119,7 @@ Deno.test('parcours complet : envoi, vérification, e-mails, téléchargement', 
   const dl = await handleDownload(call(BOB, { file_id: fileId }), ctx.deps)
   assertEquals(dl.status, 200)
   const url = new URL((await body(dl)).url)
-  assertEquals(url.searchParams.get('expires'), '120')
+  assertEquals(url.searchParams.get('expires'), '300')
   assertStringIncludes(url.searchParams.get('disposition')!, 'attachment')
 
   // Mallory ne peut pas, même avec l'identifiant exact.

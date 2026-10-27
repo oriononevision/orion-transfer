@@ -1,15 +1,16 @@
 /**
- * Logique des quatre fonctions serveur, indépendante de Supabase, R2 et
- * Resend (injectés via `deps`) pour pouvoir être testée de bout en bout.
+ * Logique des quatre fonctions serveur, indépendante de Supabase
+ * (injectés via `deps`) pour pouvoir être testée de bout en bout.
  */
 import { AppError, type Deps } from './deps.ts'
 import { bearer, errorResponse, json, readJson, uuidParam, corsHeaders } from './http.ts'
 import { detectExecutable, sniffType } from './fileRules.ts'
 import { invitationMail } from './mailTemplate.ts'
+import { chunkByteRange, chunkCountForSize, chunkObjectKey } from './chunks.ts'
 
 /** 2 h : laisse le temps d’envoyer jusqu’à 1 Go sur une connexion moyenne. */
 const UPLOAD_URL_SECONDS = 2 * 60 * 60
-const DOWNLOAD_URL_SECONDS = 2 * 60
+const DOWNLOAD_URL_SECONDS = 5 * 60
 
 type Handler = (req: Request, deps: Deps) => Promise<Response>
 
@@ -33,8 +34,31 @@ async function requireUser(req: Request, deps: Deps): Promise<{ token: string; u
   return { token, userId }
 }
 
+async function measuredSize(deps: Deps, storageKey: string, declaredSize: number): Promise<{
+  actual: number | null
+  headKey: string | null
+}> {
+  // Nouveau format : morceaux /c/0 … /c/n-1
+  const expected = chunkCountForSize(declaredSize)
+  let total = 0
+  let found = 0
+  for (let i = 0; i < expected; i += 1) {
+    const partKey = chunkObjectKey(storageKey, i)
+    const partSize = await deps.storage.size(partKey)
+    if (partSize == null) break
+    total += partSize
+    found += 1
+  }
+  if (found > 0) {
+    return { actual: total, headKey: chunkObjectKey(storageKey, 0) }
+  }
+  // Ancien format : un seul objet à la clé racine
+  const bare = await deps.storage.size(storageKey)
+  return { actual: bare, headKey: bare != null ? storageKey : null }
+}
+
 // ---------------------------------------------------------------------------
-// transfer-create : enregistre l'envoi et renvoie une URL de dépôt par fichier
+// transfer-create
 // ---------------------------------------------------------------------------
 
 export const handleCreate: Handler = endpoint(async (req, deps) => {
@@ -43,13 +67,17 @@ export const handleCreate: Handler = endpoint(async (req, deps) => {
 
   const recipients = body.recipients
   const files = body.files
-  if (!Array.isArray(recipients) || !recipients.every((r) => typeof r === 'string')) throw new AppError('invalid_recipient')
+  if (!Array.isArray(recipients) || !recipients.every((r) => typeof r === 'string')) {
+    throw new AppError('invalid_recipient')
+  }
   if (!Array.isArray(files) || files.length === 0) throw new AppError('no_files')
 
   const cleanFiles = files.map((f) => {
     if (!f || typeof f !== 'object') throw new AppError('invalid_request')
     const { name, size, type, path } = f as Record<string, unknown>
-    if (typeof name !== 'string' || typeof size !== 'number' || !Number.isSafeInteger(size)) throw new AppError('invalid_request')
+    if (typeof name !== 'string' || typeof size !== 'number' || !Number.isSafeInteger(size)) {
+      throw new AppError('invalid_request')
+    }
     return {
       name,
       size,
@@ -66,18 +94,28 @@ export const handleCreate: Handler = endpoint(async (req, deps) => {
   })
 
   const uploads = await Promise.all(
-    created.files.map(async (f) => ({
-      file_id: f.id,
-      name: f.name,
-      url: await deps.storage.signUpload(f.storage_key, UPLOAD_URL_SECONDS),
-    })),
+    created.files.map(async (f) => {
+      const count = chunkCountForSize(f.size)
+      const chunks = await Promise.all(
+        Array.from({ length: count }, async (_, index) => {
+          const { start, end } = chunkByteRange(f.size, index)
+          return {
+            index,
+            start,
+            end,
+            url: await deps.storage.signUpload(chunkObjectKey(f.storage_key, index), UPLOAD_URL_SECONDS),
+          }
+        }),
+      )
+      return { file_id: f.id, name: f.name, size: f.size, chunks }
+    }),
   )
 
   return { transfer_id: created.transfer_id, expires_at: created.expires_at, uploads }
 })
 
 // ---------------------------------------------------------------------------
-// transfer-complete : vérifie chaque fichier déposé, publie, prévient
+// transfer-complete
 // ---------------------------------------------------------------------------
 
 export const handleComplete: Handler = endpoint(async (req, deps) => {
@@ -85,14 +123,14 @@ export const handleComplete: Handler = endpoint(async (req, deps) => {
   const transferId = uuidParam(await readJson(req), 'transfer_id')
 
   const transfer = await deps.db.filesForCheck(transferId)
-  // Même réponse si le transfert n'existe pas ou appartient à quelqu'un d'autre.
   if (!transfer || transfer.sender_id !== userId) throw new AppError('not_found', 404)
 
   if (transfer.status === 'ready') {
-    // Appel répété : rien à refaire.
     return {
       status: 'ready',
-      rejected: transfer.files.filter((f) => f.status === 'rejected').map((f) => ({ file_id: f.id, reason: f.rejected_reason ?? 'rejected' })),
+      rejected: transfer.files
+        .filter((f) => f.status === 'rejected')
+        .map((f) => ({ file_id: f.id, reason: f.rejected_reason ?? 'rejected' })),
     }
   }
   if (transfer.status !== 'uploading') throw new AppError('not_found', 404)
@@ -100,14 +138,13 @@ export const handleComplete: Handler = endpoint(async (req, deps) => {
   const rejected: Array<{ file_id: string; reason: string }> = []
   for (const file of transfer.files) {
     if (file.status !== 'pending') continue
-    const actual = await deps.storage.size(file.storage_key)
-    if (actual == null) {
+    const { actual, headKey } = await measuredSize(deps, file.storage_key, file.size)
+    if (actual == null || headKey == null) {
       await deps.db.recordFileCheck(file.id, 0, 'missing', 'missing')
       rejected.push({ file_id: file.id, reason: 'missing' })
       continue
     }
-    // Le contenu réel compte, pas le nom : un programme renommé en .pdf est refusé.
-    const head = await deps.storage.readHead(file.storage_key, 16)
+    const head = await deps.storage.readHead(headKey, 16)
     const executable = detectExecutable(head)
     const reason = executable ? 'executable' : actual !== file.size ? 'size_mismatch' : null
     await deps.db.recordFileCheck(file.id, actual, sniffType(head), reason)
@@ -116,8 +153,6 @@ export const handleComplete: Handler = endpoint(async (req, deps) => {
 
   const done = await deps.db.finalizeTransfer(transferId)
 
-  // E-mails : un par destinataire (personne ne voit les autres adresses).
-  // Un échec d'envoi d'e-mail n'annule pas le transfert.
   const sender = await deps.db.senderInfo(done.sender_id)
   const fileCount = transfer.files.length - rejected.length
   await Promise.all(
@@ -145,18 +180,49 @@ export const handleComplete: Handler = endpoint(async (req, deps) => {
 })
 
 // ---------------------------------------------------------------------------
-// transfer-download : vérifie le droit, renvoie une URL signée très courte
+// transfer-download
 // ---------------------------------------------------------------------------
 
 export const handleDownload: Handler = endpoint(async (req, deps) => {
   const { token } = await requireUser(req, deps)
   const fileId = uuidParam(await readJson(req), 'file_id')
   const file = await deps.db.authorizeDownload(token, fileId)
-  return { url: await deps.storage.signDownload(file.storage_key, file.name, DOWNLOAD_URL_SECONDS) }
+
+  // Ancien objet unique (avant découpage)
+  const bare = await deps.storage.size(file.storage_key)
+  if (bare != null) {
+    return {
+      url: await deps.storage.signDownload(file.storage_key, file.name, DOWNLOAD_URL_SECONDS),
+    }
+  }
+
+  const count = chunkCountForSize(file.size)
+  // Un seul morceau : URL directe (même UX qu’avant)
+  if (count === 1) {
+    return {
+      url: await deps.storage.signDownload(
+        chunkObjectKey(file.storage_key, 0),
+        file.name,
+        DOWNLOAD_URL_SECONDS,
+      ),
+    }
+  }
+
+  const chunks = await Promise.all(
+    Array.from({ length: count }, async (_, index) => ({
+      index,
+      url: await deps.storage.signDownload(
+        chunkObjectKey(file.storage_key, index),
+        `${file.name}.part${index}`,
+        DOWNLOAD_URL_SECONDS,
+      ),
+    })),
+  )
+  return { name: file.name, chunks }
 })
 
 // ---------------------------------------------------------------------------
-// transfer-cleanup : expiration et effacement du stockage (tâche planifiée)
+// transfer-cleanup
 // ---------------------------------------------------------------------------
 
 export const handleCleanup: Handler = endpoint(async (req, deps) => {
@@ -174,7 +240,10 @@ export const handleCleanup: Handler = endpoint(async (req, deps) => {
         await deps.storage.remove(item.storage_key)
         ok.push(item.file_id)
       } catch (err) {
-        deps.log?.('effacement impossible', { file: item.file_id, error: err instanceof Error ? err.message : String(err) })
+        deps.log?.('effacement impossible', {
+          file: item.file_id,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     }
     if (ok.length === 0) break
