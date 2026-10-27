@@ -53,12 +53,12 @@ jobs:
             echo "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID"
             echo "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY"
             echo "R2_BUCKET=$R2_BUCKET"
-            [ -n "$R2_ENDPOINT" ] && echo "R2_ENDPOINT=$R2_ENDPOINT"
+            if [ -n "$R2_ENDPOINT" ]; then echo "R2_ENDPOINT=$R2_ENDPOINT"; fi
             echo "APP_URL=$APP_URL"
             echo "ALLOWED_ORIGINS=$ALLOWED_ORIGINS"
             echo "CRON_SECRET=$CRON_SECRET"
-            [ -n "$RESEND_API_KEY" ] && echo "RESEND_API_KEY=$RESEND_API_KEY"
-            [ -n "$MAIL_FROM" ] && echo "MAIL_FROM=$MAIL_FROM"
+            if [ -n "$RESEND_API_KEY" ]; then echo "RESEND_API_KEY=$RESEND_API_KEY"; fi
+            if [ -n "$MAIL_FROM" ]; then echo "MAIL_FROM=$MAIL_FROM"; fi
           } > "$RUNNER_TEMP/functions.env"
           supabase secrets set --env-file "$RUNNER_TEMP/functions.env" --project-ref "$PROJECT_REF"
           rm -f "$RUNNER_TEMP/functions.env"
