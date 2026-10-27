@@ -24,6 +24,10 @@ export const transferDb = supabase.schema('transfer')
 
 export const CORE_URL = (import.meta.env.VITE_CORE_URL as string | undefined) || 'http://localhost:5174'
 
+export const SITE_URL =
+  (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ||
+  'https://orion-site-lake.vercel.app'
+
 /** Même Client ID Google (GIS) que ORION Core / le site — auth Supabase `signInWithIdToken`. */
 export const GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() || ''

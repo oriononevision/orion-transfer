@@ -11,8 +11,8 @@ import TransfersPage from './pages/TransfersPage'
 
 function Loading() {
   return (
-    <div className="auth">
-      <p className="muted" role="status">
+    <div className="auth" style={{ placeItems: 'center', display: 'grid' }}>
+      <p className="auth__switch" role="status">
         {t('auth.loading')}
       </p>
     </div>
@@ -59,6 +59,7 @@ export default function App() {
         <Routes>
           <Route element={<PublicOnly />}>
             <Route path="connexion" element={<LoginPage />} />
+            <Route path="inscription" element={<LoginPage />} />
           </Route>
           <Route path="auth/callback" element={<AuthCallbackPage />} />
           <Route element={<RequireAuth />}>

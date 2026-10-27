@@ -31,7 +31,7 @@ export default function GoogleAuthButton({
   return (
     <button
       type="button"
-      className="btn btn--google btn--block"
+      className="auth__btn auth__btn--google"
       onClick={() => void onClick()}
       disabled={loading}
     >

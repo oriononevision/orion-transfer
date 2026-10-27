@@ -1,235 +1,168 @@
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Mail } from 'lucide-react'
+import AuthShell from '../components/AuthShell'
 import GoogleAuthButton from '../components/GoogleAuthButton'
-import { Wordmark } from '../components/Icons'
-import { t } from '../i18n'
 import {
   authErrorMessage,
   safeNextPath,
-  sendMagicLink,
   signInWithPassword,
   signUpWithPassword,
 } from '../lib/auth'
-
-type AuthMode = 'login' | 'signup' | 'magic'
+import { CORE_URL } from '../lib/supabase'
 
 /**
- * Connexion / inscription — même compte ORION que Core (Supabase).
- * Google + e-mail/mot de passe ; lien magique pour les invitations.
+ * Même formulaire que Core (AuthPage) — accent orange Transfer via --accent.
  */
 export default function LoginPage() {
+  const { pathname } = useLocation()
   const [params] = useSearchParams()
-  const invited = params.get('invite') === '1'
+  const mode = pathname.includes('inscription') ? 'signup' : 'login'
   const next = safeNextPath(params.get('next'))
-  const [email, setEmail] = useState(params.get('email') ?? '')
-  const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [mode, setMode] = useState<AuthMode>(invited ? 'magic' : 'login')
-  const [sentTo, setSentTo] = useState<string | null>(null)
-  const [info, setInfo] = useState<string | null>(null)
+  const nextQs = next !== '/' ? `?next=${encodeURIComponent(next)}` : ''
+
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [info, setInfo] = useState<string | null>(null)
 
-  const title =
-    invited && mode === 'magic'
-      ? t('auth.invitedTitle')
-      : mode === 'signup'
-        ? t('auth.signupTitle')
-        : t('auth.title')
-
-  const subtitle =
-    invited && mode === 'magic'
-      ? t('auth.invitedSubtitle')
-      : mode === 'signup'
-        ? t('auth.signupSubtitle')
-        : t('auth.subtitle')
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    setBusy(true)
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError(null)
     setInfo(null)
+    setLoading(true)
+
+    const fd = new FormData(e.currentTarget)
+    const email = String(fd.get('email') || '')
+    const password = String(fd.get('password') || '')
+    const fullName = String(fd.get('fullName') || '').trim()
+
     try {
-      if (mode === 'magic') {
-        await sendMagicLink(email, next)
-        setSentTo(email.trim().toLowerCase())
-        return
-      }
       if (mode === 'signup') {
-        const { session, user } = await signUpWithPassword(email, password, fullName.trim() || undefined)
-        if (!session && user) {
-          setInfo(t('auth.confirmEmail'))
+        const confirm = String(fd.get('passwordConfirm') || '')
+        if (password !== confirm) {
+          throw new Error('Les mots de passe ne correspondent pas.')
+        }
+        if (password.length < 8) {
+          throw new Error('Le mot de passe doit contenir au moins 8 caractères.')
+        }
+        const { session } = await signUpWithPassword(email, password, fullName || undefined)
+        if (!session) {
+          setInfo(
+            'Compte créé. Confirmez votre e-mail si demandé, puis reconnectez-vous.',
+          )
+          setLoading(false)
           return
         }
-        return
+      } else {
+        await signInWithPassword(email, password)
       }
-      await signInWithPassword(email, password)
     } catch (err) {
       setError(authErrorMessage(err))
-    } finally {
-      setBusy(false)
+      setLoading(false)
     }
   }
 
   return (
-    <div className="auth">
-      <div className="auth__glow" aria-hidden="true" />
-      <header className="auth__brand">
-        <Wordmark />
-      </header>
+    <AuthShell mode={mode} title={mode === 'login' ? 'Connexion' : 'Créer un compte'}>
+      <form className="auth__form" onSubmit={onSubmit} noValidate={mode === 'login'}>
+        <GoogleAuthButton onError={setError} />
 
-      <main className="auth__card">
-        <div className="auth__intro">
-          <h1 className="auth__title">{title}</h1>
-          <p className="auth__subtitle">{subtitle}</p>
+        <div className="auth__divider" aria-hidden="true">
+          <span>ou</span>
         </div>
 
-        {sentTo ? (
-          <p className="notice notice--success" role="status">
-            <Mail size={20} aria-hidden="true" /> {t('auth.linkSent', { email: sentTo })}
-          </p>
-        ) : (
-          <>
-            {mode !== 'magic' ? (
-              <div className="auth__social">
-                <GoogleAuthButton
-                  label={mode === 'signup' ? t('auth.googleSignup') : t('auth.googleLogin')}
-                  onError={setError}
-                />
-                <div className="auth__divider" aria-hidden="true">
-                  <span>{t('auth.or')}</span>
-                </div>
-              </div>
+        {mode === 'signup' ? (
+          <label className="auth__field">
+            <span>Nom (facultatif)</span>
+            <input
+              name="fullName"
+              type="text"
+              autoComplete="name"
+              placeholder="Prénom Nom"
+              defaultValue={params.get('name') ?? ''}
+            />
+          </label>
+        ) : null}
+
+        <label className="auth__field">
+          <span>{mode === 'login' ? 'E-mail' : 'E-mail professionnel'}</span>
+          <input
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            placeholder="vous@entreprise.com"
+            defaultValue={params.get('email') ?? ''}
+          />
+        </label>
+
+        <div className="auth__field">
+          <span>
+            Mot de passe
+            {mode === 'login' ? (
+              <a href={`${CORE_URL}/connexion`} className="auth__text-btn">
+                Oublié ?
+              </a>
             ) : null}
+          </span>
+          <div className="auth__input-wrap">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              minLength={mode === 'signup' ? 8 : undefined}
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              placeholder={mode === 'signup' ? '8 caractères minimum' : 'Votre mot de passe'}
+            />
+            <button
+              type="button"
+              className="auth__eye"
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              {showPassword ? 'Masquer' : 'Afficher'}
+            </button>
+          </div>
+        </div>
 
-            {!invited && mode !== 'magic' ? (
-              <div className="auth__tabs" role="tablist" aria-label="Mode">
-                <button
-                  type="button"
-                  role="tab"
-                  className={mode === 'login' ? 'is-active' : ''}
-                  aria-selected={mode === 'login'}
-                  onClick={() => {
-                    setMode('login')
-                    setError(null)
-                    setInfo(null)
-                  }}
-                >
-                  {t('auth.tabLogin')}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  className={mode === 'signup' ? 'is-active' : ''}
-                  aria-selected={mode === 'signup'}
-                  onClick={() => {
-                    setMode('signup')
-                    setError(null)
-                    setInfo(null)
-                  }}
-                >
-                  {t('auth.tabSignup')}
-                </button>
-              </div>
-            ) : null}
+        {mode === 'signup' ? (
+          <label className="auth__field">
+            <span>Confirmer le mot de passe</span>
+            <input
+              name="passwordConfirm"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Retapez le mot de passe"
+            />
+          </label>
+        ) : null}
 
-            <form className="auth__form" onSubmit={(e) => void submit(e)}>
-              {mode === 'signup' ? (
-                <label className="auth__field">
-                  <span className="auth__label">{t('auth.fullName')}</span>
-                  <input
-                    type="text"
-                    name="fullName"
-                    autoComplete="name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Prénom Nom"
-                  />
-                </label>
-              ) : null}
+        {error ? <p className="auth__error">{error}</p> : null}
+        {info ? <p className="auth__info">{info}</p> : null}
 
-              <label className="auth__field">
-                <span className="auth__label">{t('auth.email')}</span>
-                <input
-                  type="email"
-                  name="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="vous@entreprise.com"
-                />
-              </label>
+        <button type="submit" className="auth__btn" disabled={loading}>
+          {loading
+            ? mode === 'login'
+              ? 'Connexion…'
+              : 'Création…'
+            : mode === 'login'
+              ? 'Continuer'
+              : 'Créer mon compte'}
+        </button>
 
-              {mode !== 'magic' ? (
-                <label className="auth__field">
-                  <span className="auth__label">{t('auth.password')}</span>
-                  <input
-                    type="password"
-                    name="password"
-                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                  />
-                </label>
-              ) : null}
-
-              {error ? (
-                <p className="auth__error" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              {info ? (
-                <p className="notice notice--success" role="status">
-                  {info}
-                </p>
-              ) : null}
-
-              <button type="submit" className="btn btn--primary btn--block btn--glow" disabled={busy}>
-                {busy
-                  ? t('auth.working')
-                  : mode === 'magic'
-                    ? invited
-                      ? t('auth.receiveLink')
-                      : t('auth.magicLink')
-                    : mode === 'signup'
-                      ? t('auth.createAccount')
-                      : t('auth.signIn')}
-              </button>
-            </form>
-
-            {mode === 'magic' ? (
-              <button
-                type="button"
-                className="auth__alt"
-                onClick={() => {
-                  setMode('login')
-                  setError(null)
-                }}
-              >
-                {t('auth.usePassword')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="auth__alt"
-                onClick={() => {
-                  setMode('magic')
-                  setError(null)
-                }}
-              >
-                {t('auth.useMagicLink')}
-              </button>
-            )}
-          </>
-        )}
-
-        <p className="auth__note">{t('auth.accountNote')}</p>
-      </main>
-    </div>
+        <p className="auth__switch">
+          {mode === 'login' ? (
+            <>
+              Nouveau sur ORION ? <Link to={`/inscription${nextQs}`}>Créer un compte</Link>
+            </>
+          ) : (
+            <>
+              Déjà un compte ? <Link to={`/connexion${nextQs}`}>Se connecter</Link>
+            </>
+          )}
+        </p>
+      </form>
+    </AuthShell>
   )
 }
