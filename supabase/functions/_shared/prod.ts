@@ -3,13 +3,36 @@
  * fonctions Supabase (jamais du navigateur, jamais du dépôt Git).
  */
 import { SupabaseDb } from './dbSupabase.ts'
-import type { Deps, Mail, Mailer } from './deps.ts'
+import type { Deps, Mail, Mailer, Storage } from './deps.ts'
 import { R2Storage } from './storageR2.ts'
+import { SupabaseStorage } from './storageSupabase.ts'
 
 function env(name: string, required = true): string {
   const value = Deno.env.get(name)?.trim() ?? ''
   if (!value && required) throw new Error(`configuration_manquante_${name}`)
   return value
+}
+
+function buildStorage(): Storage {
+  const accountId = env('R2_ACCOUNT_ID', false)
+  const accessKeyId = env('R2_ACCESS_KEY_ID', false)
+  const secretAccessKey = env('R2_SECRET_ACCESS_KEY', false)
+  const bucket = env('R2_BUCKET', false) || env('TRANSFER_BUCKET', false) || 'orion-transfer'
+  if (accountId && accessKeyId && secretAccessKey) {
+    return new R2Storage({
+      accountId,
+      accessKeyId,
+      secretAccessKey,
+      bucket,
+      endpoint: env('R2_ENDPOINT', false) || undefined,
+    })
+  }
+  // Secours : bucket privé Supabase Storage (sans Cloudflare R2).
+  return new SupabaseStorage({
+    url: env('SUPABASE_URL'),
+    serviceKey: env('SUPABASE_SERVICE_ROLE_KEY'),
+    bucket,
+  })
 }
 
 class ResendMailer implements Mailer {
@@ -41,13 +64,7 @@ export function prodDeps(): Deps {
   const appUrl = env('APP_URL')
   cached = {
     db: new SupabaseDb(env('SUPABASE_URL'), env('SUPABASE_ANON_KEY'), env('SUPABASE_SERVICE_ROLE_KEY')),
-    storage: new R2Storage({
-      accountId: env('R2_ACCOUNT_ID'),
-      accessKeyId: env('R2_ACCESS_KEY_ID'),
-      secretAccessKey: env('R2_SECRET_ACCESS_KEY'),
-      bucket: env('R2_BUCKET'),
-      endpoint: env('R2_ENDPOINT', false) || undefined,
-    }),
+    storage: buildStorage(),
     mailer: resendKey ? new ResendMailer(resendKey, env('MAIL_FROM')) : new SkipMailer(),
     config: {
       appUrl,

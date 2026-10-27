@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Ban, File as FileIcon, Folder, KeyRound, RotateCcw, X, Check, WifiOff } from 'lucide-react'
-import { completeTransfer, createTransfer, uploadToSignedUrl } from '../api/transfers'
+import {
+  completeTransfer,
+  createTransfer,
+  searchOrionMembers,
+  uploadToSignedUrl,
+  type OrionMember,
+} from '../api/transfers'
 import { errorMessage, formatLongDate, t } from '../i18n'
 import { checkSelection, formatBytes, LIMITS, normalizeEmail, type FileIssue } from '../lib/fileRules'
 import { fromInput, inspectFile, type Collected, type PickedFile } from '../lib/readDrop'
+
+type RecipientMode = 'email' | 'orion'
 
 type Item = PickedFile & {
   key: string
@@ -57,9 +65,13 @@ export default function SendPanel({
   const [items, setItems] = useState<Item[]>([])
   const [rejected, setRejected] = useState<Rejection[]>([])
   const [excluded, setExcluded] = useState(0)
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>('email')
   const [recipients, setRecipients] = useState<string[]>([])
   const [draft, setDraft] = useState('')
   const [draftError, setDraftError] = useState<string | null>(null)
+  const [orionQuery, setOrionQuery] = useState('')
+  const [orionHits, setOrionHits] = useState<OrionMember[]>([])
+  const [orionLoading, setOrionLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [days, setDays] = useState<number>(LIMITS.defaultExpiryDays)
   const [phase, setPhase] = useState<Phase>('edit')
@@ -95,14 +107,40 @@ export default function SendPanel({
     // Ne s'exécute qu'à l'ouverture du panneau.
   }, [])
 
+  const locked = phase !== 'edit'
+
+  // Recherche membres Orion (debounce).
+  useEffect(() => {
+    if (recipientMode !== 'orion' || locked) return
+    let cancelled = false
+    setOrionLoading(true)
+    const timer = window.setTimeout(() => {
+      void searchOrionMembers(orionQuery, 12)
+        .then((rows) => {
+          if (!cancelled) setOrionHits(rows.filter((m) => !recipients.includes(m.email.toLowerCase())))
+        })
+        .catch(() => {
+          if (!cancelled) setOrionHits([])
+        })
+        .finally(() => {
+          if (!cancelled) setOrionLoading(false)
+        })
+    }, 220)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [recipientMode, orionQuery, recipients, locked])
+
   const totalBytes = items.reduce((sum, i) => sum + i.file.size, 0)
   const tooMany = items.length > LIMITS.maxFiles
   const tooLarge = totalBytes > LIMITS.maxTransferBytes
   const pendingSecrets = items.some((i) => i.warning === 'secret' && !i.keep)
   const allRecipients = useMemo(() => {
+    if (recipientMode === 'orion') return recipients
     const fromDraft = normalizeEmail(draft)
     return fromDraft && !recipients.includes(fromDraft) ? [...recipients, fromDraft] : recipients
-  }, [draft, recipients])
+  }, [draft, recipients, recipientMode])
   const canSend =
     phase === 'edit' && items.length > 0 && !tooMany && !tooLarge && !pendingSecrets && allRecipients.length > 0 && !offline
 
@@ -122,7 +160,17 @@ export default function SendPanel({
     return { folders: [...folders.entries()], singles }
   }, [items])
 
+  const addRecipientEmail = (raw: string) => {
+    const email = normalizeEmail(raw)
+    if (!email) return false
+    if (!recipients.includes(email) && recipients.length < LIMITS.maxRecipients) {
+      setRecipients([...recipients, email])
+    }
+    return true
+  }
+
   const commitDraft = () => {
+    if (recipientMode !== 'email') return true
     const value = draft.trim()
     if (!value) return true
     const email = normalizeEmail(value)
@@ -130,10 +178,23 @@ export default function SendPanel({
       setDraftError(t('send.recipientInvalid', { value }))
       return false
     }
-    if (!recipients.includes(email) && recipients.length < LIMITS.maxRecipients) setRecipients([...recipients, email])
+    addRecipientEmail(email)
     setDraft('')
     setDraftError(null)
     return true
+  }
+
+  const pickOrionMember = (member: OrionMember) => {
+    addRecipientEmail(member.email)
+    setOrionQuery('')
+  }
+
+  const switchRecipientMode = (mode: RecipientMode) => {
+    if (locked || mode === recipientMode) return
+    setRecipientMode(mode)
+    setDraft('')
+    setDraftError(null)
+    setOrionQuery('')
   }
 
   const onDraftKey = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -216,7 +277,6 @@ export default function SendPanel({
   }
 
   const failed = items.filter((i) => i.state === 'error')
-  const locked = phase !== 'edit'
 
   return (
     <dialog
@@ -351,9 +411,32 @@ export default function SendPanel({
             </section>
 
             <section className="field">
-              <label className="field__label" htmlFor="recipients-input">
-                {t('send.recipients')}
-              </label>
+              <div className="field__row">
+                <span className="field__label" id="recipients-label">
+                  {t('send.recipients')}
+                </span>
+                <div className="segmented segmented--sm" role="group" aria-labelledby="recipients-label">
+                  <button
+                    type="button"
+                    aria-pressed={recipientMode === 'email'}
+                    disabled={locked}
+                    className={recipientMode === 'email' ? 'is-active' : ''}
+                    onClick={() => switchRecipientMode('email')}
+                  >
+                    {t('send.recipientModeEmail')}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={recipientMode === 'orion'}
+                    disabled={locked}
+                    className={recipientMode === 'orion' ? 'is-active' : ''}
+                    onClick={() => switchRecipientMode('orion')}
+                  >
+                    {t('send.recipientModeOrion')}
+                  </button>
+                </div>
+              </div>
+
               <div className={`chips${draftError ? ' chips--error' : ''}`}>
                 {recipients.map((email) => (
                   <span className="chip" key={email}>
@@ -365,26 +448,59 @@ export default function SendPanel({
                     ) : null}
                   </span>
                 ))}
-                <input
-                  id="recipients-input"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder={t('send.recipientsPlaceholder')}
-                  value={draft}
-                  disabled={locked}
-                  onChange={(e) => {
-                    setDraft(e.target.value)
-                    setDraftError(null)
-                  }}
-                  onKeyDown={onDraftKey}
-                  onBlur={commitDraft}
-                  aria-describedby="recipients-hint"
-                  aria-invalid={draftError ? true : undefined}
-                />
+                {recipientMode === 'email' ? (
+                  <input
+                    id="recipients-input"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder={t('send.recipientsPlaceholder')}
+                    value={draft}
+                    disabled={locked}
+                    onChange={(e) => {
+                      setDraft(e.target.value)
+                      setDraftError(null)
+                    }}
+                    onKeyDown={onDraftKey}
+                    onBlur={commitDraft}
+                    aria-describedby="recipients-hint"
+                    aria-invalid={draftError ? true : undefined}
+                  />
+                ) : (
+                  <input
+                    id="recipients-orion-input"
+                    type="search"
+                    autoComplete="off"
+                    placeholder={t('send.recipientsOrionPlaceholder')}
+                    value={orionQuery}
+                    disabled={locked || recipients.length >= LIMITS.maxRecipients}
+                    onChange={(e) => setOrionQuery(e.target.value)}
+                    aria-describedby="recipients-hint"
+                  />
+                )}
               </div>
+
+              {recipientMode === 'orion' && !locked ? (
+                <ul className="member-picker" role="listbox" aria-label={t('send.recipientModeOrion')}>
+                  {orionLoading ? (
+                    <li className="muted small">{t('send.recipientsOrionLoading')}</li>
+                  ) : orionHits.length === 0 ? (
+                    <li className="muted small">{t('send.recipientsOrionEmpty')}</li>
+                  ) : (
+                    orionHits.map((m) => (
+                      <li key={m.id}>
+                        <button type="button" className="member-picker__btn" onClick={() => pickOrionMember(m)}>
+                          <span className="member-picker__name">{m.display_name || m.email.split('@')[0]}</span>
+                          <span className="muted small">{m.email}</span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : null}
+
               <p id="recipients-hint" className={draftError ? 'danger-text small' : 'muted small'}>
-                {draftError ?? t('send.recipientsHint')}
+                {draftError ?? (recipientMode === 'orion' ? t('send.recipientsOrionHint') : t('send.recipientsHint'))}
               </p>
             </section>
 

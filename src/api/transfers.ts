@@ -168,9 +168,40 @@ async function invoke<T>(name: string, body: Record<string, unknown>): Promise<T
       const payload = await error.context.json().catch(() => null)
       throw new TransferError(typeof payload?.error === 'string' ? payload.error : 'unknown')
     }
+    const msg = (error.message || '').toLowerCase()
+    if (msg.includes('failed to send') || msg.includes('fetch') || msg.includes('network')) {
+      throw new TransferError('network')
+    }
     throw new TransferError('network')
   }
+  if (data && typeof data === 'object' && 'error' in data && typeof (data as { error: unknown }).error === 'string') {
+    throw new TransferError((data as { error: string }).error)
+  }
   return data as T
+}
+
+export type OrionMember = {
+  id: string
+  email: string
+  display_name: string | null
+}
+
+/** Membres ORION (profils) pour le destinataire « membre ». */
+export async function searchOrionMembers(query = '', limit = 12): Promise<OrionMember[]> {
+  if (IS_DEMO) {
+    const demo = [
+      { id: 'demo-1', email: 'alice@orion.dev', display_name: 'Alice' },
+      { id: 'demo-2', email: 'bob@orion.dev', display_name: 'Bob' },
+    ]
+    const q = query.trim().toLowerCase()
+    return demo.filter((m) => !q || m.email.includes(q) || (m.display_name?.toLowerCase().includes(q) ?? false)).slice(0, limit)
+  }
+  const { data, error } = await transferDb.rpc('search_members', {
+    p_query: query,
+    p_limit: limit,
+  })
+  if (error) fail(error)
+  return (data ?? []) as OrionMember[]
 }
 
 export type NewFile = { name: string; size: number; type?: string; path?: string }

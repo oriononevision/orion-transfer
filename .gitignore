@@ -13,3 +13,4 @@ dist-ssr
 .idea
 supabase/.temp
 supabase/.branches
+.env*
