@@ -181,7 +181,8 @@ async function invoke<T>(name: string, body: Record<string, unknown>): Promise<T
 }
 
 export type OrionMember = {
-  id: string
+  /** Toujours vide côté serveur : aucun identifiant de compte n'est exposé. */
+  id: string | null
   email: string
   display_name: string | null
 }

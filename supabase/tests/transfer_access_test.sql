@@ -204,6 +204,18 @@ select tests.ok((select count(*) from transfer.inbox()) = 0, 'après retrait, la
 select tests.fails($q$select transfer.authorize_download(current_setting('tests.fid')::uuid)$q$,
   'not_found', 'après retrait, Bob ne peut plus télécharger');
 
+-- Suggestions de destinataires
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
+select tests.ok((select count(*) from transfer.search_contacts()) = 4, 'Alice retrouve ses 4 destinataires en suggestion');
+select tests.ok((select count(*) from transfer.search_contacts() where display_name is not null or id is not null) = 0,
+  'aucun nom ni identifiant pour des adresses saisies : impossible de savoir qui a un compte');
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
+select tests.ok((select display_name from transfer.search_contacts('alice')) = 'Alice Martin', 'Carol, qui a reçu un transfert d''Alice, la retrouve par son nom');
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-4444-444444444444', false);
+select tests.ok((select count(*) from transfer.search_contacts()) = 0, 'Mallory n''a aucune suggestion');
+select set_config('request.jwt.claim.sub', '66666666-6666-6666-6666-666666666666', false);
+select tests.ok((select count(*) from transfer.search_contacts()) = 0, 'une adresse non vérifiée ne découvre pas qui lui a écrit');
+
 -- ===========================================================================
 -- 9. Expiration
 -- ===========================================================================

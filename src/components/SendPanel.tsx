@@ -488,7 +488,7 @@ export default function SendPanel({
                     <li className="muted small">{t('send.recipientsOrionEmpty')}</li>
                   ) : (
                     orionHits.map((m) => (
-                      <li key={m.id}>
+                      <li key={m.email}>
                         <button type="button" className="member-picker__btn" onClick={() => pickOrionMember(m)}>
                           <span className="member-picker__name">{m.display_name || m.email.split('@')[0]}</span>
                           <span className="muted small">{m.email}</span>

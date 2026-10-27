@@ -13,7 +13,7 @@ const MB = 1024 * 1024
 
 /**
  * Doit rester identique à transfer.limits() côté base
- * (migration 20261027190000_supabase_storage.sql).
+ * (migration 20261027200000_supabase_storage.sql).
  * 50 Mo par fichier : maximum de l'offre gratuite de Supabase Storage.
  */
 export const LIMITS = {
