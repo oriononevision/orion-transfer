@@ -79,10 +79,10 @@ select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[
   'blocked_file_type', 'un .exe est refusé');
 select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"SETUP.MSI","size":10}]', 7)$q$,
   'blocked_file_type', 'l''extension est vérifiée sans tenir compte des majuscules');
-select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"video.mov","size":52428801}]', 7)$q$,
-  'file_too_large', 'un fichier de plus de 50 Mo est refusé');
-select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"f0","size":52428800},{"name":"f1","size":52428800},{"name":"f2","size":52428800},{"name":"f3","size":52428800},{"name":"f4","size":52428800},{"name":"f5","size":52428800},{"name":"f6","size":52428800},{"name":"f7","size":52428800},{"name":"f8","size":52428800},{"name":"f9","size":52428800},{"name":"f10","size":52428800}]', 7)$q$,
-  'transfer_too_large', 'un transfert de plus de 500 Mo est refusé');
+select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"video.mov","size":1073741825}]', 7)$q$,
+  'file_too_large', 'un fichier de plus de 1 Go est refusé');
+select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"a","size":1073741824},{"name":"b","size":1}]', 7)$q$,
+  'transfer_too_large', 'un transfert de plus de 1 Go est refusé');
 select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], (select jsonb_agg(jsonb_build_object('name','f'||g,'size',1)) from generate_series(1,21) g), 7)$q$,
   'too_many_files', 'plus de 20 fichiers sont refusés');
 select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"a.txt","size":1}]', 3)$q$,
@@ -273,9 +273,10 @@ select tests.fails($q$select transfer.finalize_transfer(current_setting('tests.t
 reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false);
-select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"f0","size":52428800},{"name":"f1","size":52428800},{"name":"f2","size":52428800},{"name":"f3","size":52428800},{"name":"f4","size":52428800},{"name":"f5","size":52428800},{"name":"f6","size":52428800},{"name":"f7","size":52428800},{"name":"f8","size":52428800},{"name":"f9","size":52428800}]', 14);
+select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"a","size":1073741824}]', 14);
+select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"a","size":1073741824}]', 14);
 select tests.fails($q$select transfer.create_transfer(array['bob@orion.dev'], '[{"name":"z","size":1000}]', 7)$q$,
-  'storage_quota_exceeded', 'au-delà de 500 Mo de stockage actif, l''envoi est refusé');
+  'storage_quota_exceeded', 'au-delà de 2 Go de stockage actif, l''envoi est refusé');
 
 reset role;
 set role anon;

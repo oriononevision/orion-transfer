@@ -34,7 +34,7 @@ immutable
 set search_path = ''
 as $$
   select jsonb_build_object(
-    'max_file_bytes',        262144000,   -- 250 Mo
+    'max_file_bytes',        1073741824,  -- 1 Go
     'max_transfer_bytes',    1073741824,  -- 1 Go
     'max_files',             20,
     'max_recipients',        20,
@@ -94,7 +94,7 @@ create table if not exists transfer.files (
   transfer_id     uuid not null references transfer.transfers (id) on delete cascade,
   display_name    text not null check (char_length(display_name) between 1 and 255),
   relative_path   text check (relative_path is null or char_length(relative_path) <= 1024),
-  size_bytes      bigint not null check (size_bytes > 0 and size_bytes <= 262144000),
+  size_bytes      bigint not null check (size_bytes > 0 and size_bytes <= 1073741824),
   declared_type   text check (declared_type is null or char_length(declared_type) <= 255),
   detected_type   text,
   storage_key     text not null unique,

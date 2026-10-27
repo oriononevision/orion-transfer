@@ -119,7 +119,7 @@ describe('sélection complète', () => {
       { name: 'App.tsx', size: 2_000, path: 'orion-core/src/App.tsx' },
       { name: 'index.js', size: 500, path: 'orion-core/node_modules/x/index.js' },
       { name: 'setup.exe', size: 10 },
-      { name: 'film.mov', size: 51 * MB },
+      { name: 'film.mov', size: 1025 * MB },
       { name: 'vide.txt', size: 0 },
     ])
     expect(result.accepted.map((f) => f.name)).toEqual(['App.tsx'])
@@ -131,7 +131,7 @@ describe('sélection complète', () => {
   it('signale un envoi trop lourd ou trop nombreux', () => {
     const many = Array.from({ length: LIMITS.maxFiles + 1 }, (_, i) => ({ name: `f${i}.txt`, size: 1 }))
     expect(checkSelection(many).tooManyFiles).toBe(true)
-    const heavy = Array.from({ length: 11 }, (_, i) => ({ name: `f${i}.bin`, size: 50 * MB }))
+    const heavy = Array.from({ length: 5 }, (_, i) => ({ name: `f${i}.bin`, size: 250 * MB }))
     expect(checkSelection(heavy).tooLarge).toBe(true)
   })
 })

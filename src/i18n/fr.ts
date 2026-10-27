@@ -169,7 +169,7 @@ export const fr = {
   'error.no_files': 'Ajoutez au moins un fichier.',
   'error.too_many_files': 'Trop de fichiers : 20 au maximum par envoi.',
   'error.invalid_file_size': 'Un des fichiers est vide ou illisible.',
-  'error.file_too_large': 'Un des fichiers dépasse 50 Mo.',
+  'error.file_too_large': 'Un des fichiers dépasse 1 Go.',
   'error.invalid_file_name': 'Un des noms de fichier est invalide.',
   'error.blocked_file_type': 'Les programmes d’installation ne peuvent pas être envoyés.',
   'error.transfer_too_large': 'L’envoi dépasse 500 Mo.',
