@@ -1,0 +1,15 @@
+---
+description: Après toute modification, commit et push GitHub automatiquement
+alwaysApply: true
+---
+
+# Push GitHub après chaque modification
+
+Dès qu’une modification demandée par l’utilisateur est terminée (code, config, migration, assets) :
+
+1. **Commit** les fichiers concernés (message clair, en français si le dépôt le fait).
+2. **Push** immédiatement vers `origin` sur la branche courante (`git push -u origin HEAD` si besoin).
+3. Ne pas attendre que l’utilisateur demande le commit/push.
+4. Ne jamais committer de secrets (`.env`, clés, tokens). Les `.exe` lourds restent hors git s’ils sont dans `.gitignore`.
+5. Si plusieurs dépôts ORION sont touchés (`orion-core`, `orion-transfer`, `orionweb.com`, `logiciel-desktop`), commit + push **dans chacun**.
+6. Si le push est refusé (droits workflow, etc.), corriger ou pousser sans le fichier bloquant, puis indiquer le statut brièvement.
