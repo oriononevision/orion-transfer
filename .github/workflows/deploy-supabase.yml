@@ -63,17 +63,14 @@ jobs:
           ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          # Fichier temporaire, jamais affiché dans le journal.
-          umask 077
-          {
-            echo "APP_URL=$APP_URL"
-            echo "ALLOWED_ORIGINS=$ALLOWED_ORIGINS"
-            echo "CRON_SECRET=$CRON_SECRET"
-            if [ -n "$RESEND_API_KEY" ]; then echo "RESEND_API_KEY=$RESEND_API_KEY"; fi
-            if [ -n "$MAIL_FROM" ]; then echo "MAIL_FROM=$MAIL_FROM"; fi
-          } > "$RUNNER_TEMP/functions.env"
-          supabase secrets set --env-file "$RUNNER_TEMP/functions.env" --project-ref "$PROJECT_REF"
-          rm -f "$RUNNER_TEMP/functions.env"
+          # Chaque valeur est passée telle quelle, sans fichier intermédiaire :
+          # les caractères spéciaux (#, guillemets, $) restent intacts.
+          args=("APP_URL=$APP_URL" "CRON_SECRET=$CRON_SECRET")
+          if [ -n "$ALLOWED_ORIGINS" ]; then args+=("ALLOWED_ORIGINS=$ALLOWED_ORIGINS"); fi
+          if [ -n "$RESEND_API_KEY" ]; then args+=("RESEND_API_KEY=$RESEND_API_KEY"); fi
+          if [ -n "$MAIL_FROM" ]; then args+=("MAIL_FROM=$MAIL_FROM"); fi
+          supabase secrets set "${args[@]}" --project-ref "$PROJECT_REF" > /dev/null
+          echo "Secrets des fonctions enregistrés : ${#args[@]}"
           # Ancienne configuration Cloudflare R2 : retirée si elle existe.
           supabase secrets unset R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT --project-ref "$PROJECT_REF" --yes < /dev/null || true
 
