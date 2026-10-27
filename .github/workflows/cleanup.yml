@@ -20,8 +20,18 @@ jobs:
             echo "Secrets absents : nettoyage ignoré."
             exit 0
           fi
-          curl -fsS -X POST \
+          # Affiche le code HTTP et la réponse (jamais de secret dedans).
+          status=$(curl -sS -o "$RUNNER_TEMP/out.json" -w '%{http_code}' -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
             -d '{}' \
-            "https://$PROJECT_REF.supabase.co/functions/v1/transfer-cleanup"
+            "https://$PROJECT_REF.supabase.co/functions/v1/transfer-cleanup")
+          echo "Code HTTP : $status"
+          echo "Réponse : $(head -c 500 "$RUNNER_TEMP/out.json")"
+          case "$status" in
+            2??) ;;
+            401) echo "::error::401 : la fonction exige une connexion. Redéployez (le déploiement la publie avec --no-verify-jwt)."; exit 1 ;;
+            403) echo "::error::403 : CRON_SECRET différent entre GitHub et Supabase. Relancez « Déployer sur Supabase »."; exit 1 ;;
+            404) echo "::error::404 : fonction transfer-cleanup absente. Lancez « Déployer sur Supabase »."; exit 1 ;;
+            *) echo "::error::Échec du nettoyage (code $status)."; exit 1 ;;
+          esac

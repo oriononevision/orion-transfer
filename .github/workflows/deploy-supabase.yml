@@ -79,6 +79,8 @@ jobs:
 
       - name: Déployer les fonctions
         run: |
-          for fn in transfer-create transfer-complete transfer-download transfer-cleanup; do
+          for fn in transfer-create transfer-complete transfer-download; do
             supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
           done
+          # Appelée par la tâche planifiée avec CRON_SECRET, pas par un utilisateur connecté.
+          supabase functions deploy transfer-cleanup --project-ref "$PROJECT_REF" --no-verify-jwt
