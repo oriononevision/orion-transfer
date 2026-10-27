@@ -1,4 +1,6 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, HashRouter, Navigate, Outlet, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
+import { IS_DEMO } from './api/transfers'
+import { safeNextPath } from './lib/auth'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { t } from './i18n'
 import AccountPage from './pages/AccountPage'
@@ -31,15 +33,29 @@ function RequireAuth() {
 
 function PublicOnly() {
   const { session, loading } = useAuth()
+  const [params] = useSearchParams()
   if (loading) return <Loading />
-  if (session) return <Navigate to="/" replace />
+  // Déjà connecté (par ex. depuis un e-mail d'invitation) : aller à la page demandée.
+  if (session) return <Navigate to={safeNextPath(params.get('next'))} replace />
   return <Outlet />
+}
+
+// La démo est servie comme simple page statique : navigation par « # ».
+const Router = IS_DEMO ? HashRouter : BrowserRouter
+
+function DemoBanner() {
+  return (
+    <p className="demo-banner" role="note">
+      Démonstration — données fictives, rien n’est réellement envoyé.
+    </p>
+  )
 }
 
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
+        {IS_DEMO ? <DemoBanner /> : null}
         <Routes>
           <Route element={<PublicOnly />}>
             <Route path="connexion" element={<LoginPage />} />
@@ -52,7 +68,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   )
 }

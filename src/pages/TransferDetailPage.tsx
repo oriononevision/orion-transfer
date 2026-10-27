@@ -37,6 +37,8 @@ export default function TransferDetailPage() {
   const [sender, setSender] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  /** Action en attente de confirmation : id d'un destinataire, ou « delete ». */
+  const [confirming, setConfirming] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -204,25 +206,38 @@ export default function TransferDetailPage() {
                             : t('detail.notDownloaded')}
                       </span>
                     </span>
-                    {!r.revoked_at && !expired ? (
-                      <button
-                        type="button"
-                        className="btn btn--ghost btn--sm"
-                        disabled={busy === r.id}
-                        onClick={() => {
-                          if (window.confirm(t('detail.revokeConfirm', { email: r.email }))) {
-                            void run(r.id, async () => {
-                              await revokeRecipient(r.id)
-                              await load()
-                            })
-                          }
-                        }}
-                      >
+                    {!r.revoked_at && !expired && confirming !== r.id ? (
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setConfirming(r.id)}>
                         {t('detail.revoke')}
                       </button>
                     ) : null}
                   </div>
                 ))}
+                {recipients.some((r) => r.id === confirming) ? (
+                  <div className="confirm" role="alertdialog" aria-label={t('detail.revoke')}>
+                    <p>{t('detail.revokeConfirm', { email: recipients.find((r) => r.id === confirming)!.email })}</p>
+                    <div className="row-wrap">
+                      <button
+                        type="button"
+                        className="btn btn--danger btn--sm"
+                        disabled={busy === confirming}
+                        onClick={() => {
+                          const rid = confirming!
+                          void run(rid, async () => {
+                            await revokeRecipient(rid)
+                            setConfirming(null)
+                            await load()
+                          })
+                        }}
+                      >
+                        {t('detail.revoke')}
+                      </button>
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setConfirming(null)}>
+                        {t('send.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <p className="muted small">{t('detail.revokeNote')}</p>
               </section>
             ) : null}
@@ -248,21 +263,33 @@ export default function TransferDetailPage() {
                   {t('detail.delete')}
                 </h2>
                 <p className="muted">{t('detail.deleteNote')}</p>
-                <button
-                  type="button"
-                  className="btn btn--danger"
-                  disabled={busy === 'delete'}
-                  onClick={() => {
-                    if (window.confirm(t('detail.deleteConfirm'))) {
-                      void run('delete', async () => {
-                        await deleteTransfer(transfer.id)
-                        navigate('/', { replace: true })
-                      })
-                    }
-                  }}
-                >
-                  <Trash2 size={16} aria-hidden="true" /> {t('detail.deleteButton')}
-                </button>
+                {confirming === 'delete' ? (
+                  <div className="confirm" role="alertdialog" aria-label={t('detail.delete')}>
+                    <p>{t('detail.deleteConfirm')}</p>
+                    <div className="row-wrap">
+                      <button
+                        type="button"
+                        className="btn btn--danger btn--sm"
+                        disabled={busy === 'delete'}
+                        onClick={() =>
+                          void run('delete', async () => {
+                            await deleteTransfer(transfer.id)
+                            navigate('/', { replace: true })
+                          })
+                        }
+                      >
+                        <Trash2 size={16} aria-hidden="true" /> {t('detail.delete')}
+                      </button>
+                      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setConfirming(null)}>
+                        {t('send.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn--danger" onClick={() => setConfirming('delete')}>
+                    <Trash2 size={16} aria-hidden="true" /> {t('detail.deleteButton')}
+                  </button>
+                )}
               </section>
             ) : null}
           </aside>

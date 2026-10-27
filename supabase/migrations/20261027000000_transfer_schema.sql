@@ -835,6 +835,48 @@ as $$
   update transfer.files set purged_at = now() where id = any (p_file_ids) and purged_at is null;
 $$;
 
+-- État d'un transfert et de ses fichiers, pour la validation après dépôt.
+create or replace function transfer.files_for_check(p_transfer_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'id', t.id,
+    'sender_id', t.sender_id,
+    'status', t.status,
+    'message', t.message,
+    'files', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', f.id, 'storage_key', f.storage_key, 'size', f.size_bytes,
+        'name', f.display_name, 'status', f.status, 'rejected_reason', f.rejected_reason
+      ) order by f.created_at, f.id)
+      from transfer.files f where f.transfer_id = t.id
+    ), '[]'::jsonb)
+  )
+  from transfer.transfers t
+  where t.id = p_transfer_id;
+$$;
+
+-- Nom et adresse de l'expéditeur, pour l'e-mail d'invitation.
+create or replace function transfer.sender_info(p_user_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'email', u.email,
+    'name', nullif(btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')), '')
+  )
+  from auth.users u
+  left join public.profiles p on p.id = u.id
+  where u.id = p_user_id;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Droits d'exécution
 -- ---------------------------------------------------------------------------

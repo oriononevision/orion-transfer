@@ -8,6 +8,10 @@
  */
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase, transferDb } from '../lib/supabase'
+import * as demo from '../demo/demoApi'
+
+/** Mode démonstration : aucune donnée réelle, aucun serveur (voir src/demo). */
+export const IS_DEMO = import.meta.env.VITE_DEMO === '1'
 
 export type TransferStatus = 'uploading' | 'ready' | 'expired' | 'deleted'
 
@@ -85,23 +89,27 @@ function fail(error: { message?: string } | null | undefined): never {
 // ---------------------------------------------------------------------------
 
 export async function claimInvitations(): Promise<void> {
+  if (IS_DEMO) return
   const { error } = await transferDb.rpc('claim_invitations')
   if (error) fail(error)
 }
 
 export async function fetchInbox(): Promise<InboxItem[]> {
+  if (IS_DEMO) return demo.fetchInbox()
   const { data, error } = await transferDb.rpc('inbox', { p_limit: 50 })
   if (error) fail(error)
   return (data ?? []) as InboxItem[]
 }
 
 export async function fetchOutbox(): Promise<OutboxItem[]> {
+  if (IS_DEMO) return demo.fetchOutbox()
   const { data, error } = await transferDb.rpc('outbox', { p_limit: 50 })
   if (error) fail(error)
   return (data ?? []) as OutboxItem[]
 }
 
 export async function fetchUsage(): Promise<Usage> {
+  if (IS_DEMO) return demo.fetchUsage()
   const { data, error } = await transferDb.rpc('my_usage')
   if (error) fail(error)
   return { active_bytes: Number((data as { active_bytes?: number })?.active_bytes ?? 0) }
@@ -116,6 +124,7 @@ export type TransferDetail = {
 
 /** Les règles d'accès filtrent : un transfert inaccessible renvoie null. */
 export async function fetchTransfer(id: string): Promise<TransferDetail | null> {
+  if (IS_DEMO) return demo.fetchTransfer(id)
   const [t, f, r, e] = await Promise.all([
     transferDb.from('transfers').select('id, sender_id, message, status, expires_at, total_bytes, file_count, created_at').eq('id', id).maybeSingle(),
     transferDb.from('files').select('id, display_name, relative_path, size_bytes, detected_type, status').eq('transfer_id', id).order('display_name'),
@@ -137,11 +146,13 @@ export async function fetchTransfer(id: string): Promise<TransferDetail | null> 
 // ---------------------------------------------------------------------------
 
 export async function revokeRecipient(recipientId: string): Promise<void> {
+  if (IS_DEMO) return demo.revokeRecipient(recipientId)
   const { error } = await transferDb.rpc('revoke_recipient', { p_recipient_id: recipientId })
   if (error) fail(error)
 }
 
 export async function deleteTransfer(transferId: string): Promise<void> {
+  if (IS_DEMO) return demo.deleteTransfer(transferId)
   const { error } = await transferDb.rpc('delete_transfer', { p_transfer_id: transferId })
   if (error) fail(error)
 }
@@ -176,6 +187,7 @@ export function createTransfer(input: {
   expiryDays: number
   message?: string
 }): Promise<CreatedTransfer> {
+  if (IS_DEMO) return demo.createTransfer(input)
   return invoke('transfer-create', {
     recipients: input.recipients,
     files: input.files,
@@ -190,10 +202,12 @@ export type CompletedTransfer = {
 }
 
 export function completeTransfer(transferId: string): Promise<CompletedTransfer> {
+  if (IS_DEMO) return demo.completeTransfer(transferId)
   return invoke('transfer-complete', { transfer_id: transferId })
 }
 
 export async function downloadFile(fileId: string): Promise<void> {
+  if (IS_DEMO) return demo.downloadFile(fileId)
   const { url } = await invoke<{ url: string }>('transfer-download', { file_id: fileId })
   // URL signée de courte durée, servie depuis le domaine du stockage avec
   // « Content-Disposition: attachment » : le fichier n'est jamais affiché ni
@@ -211,6 +225,7 @@ export function uploadToSignedUrl(
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (IS_DEMO) return demo.uploadToSignedUrl(url, file, onProgress)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', url)

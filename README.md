@@ -2,14 +2,15 @@
 
 Application web de l'écosystème ORION pour envoyer, recevoir et retrouver des fichiers de travail. Les comptes sont ceux d'ORION (même projet Supabase que ORION Core).
 
-> État : base technique du MVP. L'interface, la base de données et les règles d'accès sont prêtes et testées. **Les fonctions serveur d'envoi et de téléchargement (Cloudflare R2) et les e-mails ne sont pas encore écrits** : sans elles, un envoi échoue avec un message d'erreur.
+> État : MVP complet, testé, pas encore mis en ligne. Interface, base de données, règles d'accès, fonctions serveur (dépôt et téléchargement via Cloudflare R2, e-mails via Resend, nettoyage) et mode démonstration. **Pour la mise en ligne, suivre [DEPLOIEMENT.md](DEPLOIEMENT.md).**
 
 ## Pile
 
 - Vite + React 19 + TypeScript + React Router (comme ORION Core)
 - Supabase : comptes (partagés avec Core), base Postgres (schéma `transfer`), règles d'accès RLS
-- Cloudflare R2 pour les fichiers (bucket privé, URL signées de courte durée) — à brancher
-- Resend pour les e-mails d'invitation — à brancher
+- Supabase Edge Functions (Deno) : `transfer-create`, `transfer-complete`, `transfer-download`, `transfer-cleanup`
+- Cloudflare R2 pour les fichiers (bucket privé, URL signées de courte durée, dépôt direct depuis le navigateur)
+- Resend pour les e-mails d'invitation
 - Vitest (règles de fichiers, statuts) et tests SQL sur un Postgres local (règles d'accès)
 
 ## Lancer en local
@@ -32,9 +33,20 @@ Ports de l'écosystème : site 5173, Core 5174, Transfer 5175.
 ## Tests
 
 ```bash
-npm test          # règles de fichiers, statuts, textes (Vitest)
-npm run test:db   # migration + règles d'accès sur un PostgreSQL local jetable
+npm test                     # règles de fichiers, statuts, textes (Vitest)
+npm run test:db              # migration + règles d'accès sur un PostgreSQL local jetable
+./scripts/test-functions.sh  # fonctions serveur de bout en bout (Deno + PostgreSQL local)
 ```
+
+Les trois tournent aussi automatiquement sur GitHub à chaque envoi de code (`.github/workflows/ci.yml`).
+
+## Mode démonstration
+
+```bash
+VITE_DEMO=1 npm run dev
+```
+
+Même application, données fictives en mémoire, aucun serveur ; un bandeau le signale.
 
 `test:db` a besoin de PostgreSQL 15+ en local (`PGHOST`, `PGPORT`, `PGUSER`). Il crée une base `transfer_test`, imite le strict nécessaire de Supabase (`supabase/tests/supabase_stub.sql`), applique la migration deux fois (elle doit pouvoir être rejouée) et vérifie notamment :
 
@@ -53,7 +65,9 @@ npm run test:db   # migration + règles d'accès sur un PostgreSQL local jetable
 | Expiration | affichage | `authorize_download()` vérifie la date ; `expire_due()` (pg_cron) ; nettoyage du stockage |
 | Secrets (`.env`, clés) | avertissement avant envoi, analyse locale uniquement | — |
 
-Ce qui n'existe pas encore et ne doit pas être annoncé : chiffrement de bout en bout, analyse antivirus, aperçu des fichiers, lien de partage public.
+Ce qui n'existe pas encore et ne doit pas être annoncé : chiffrement de bout en bout, analyse antivirus, aperçu des fichiers, lien de partage public, reprise d'un envoi interrompu.
+
+Limite connue : la taille d'un fichier est vérifiée **après** son dépôt (et le fichier refusé s'il dépasse ce qui était déclaré). Une URL de dépôt reste valable 15 minutes.
 
 ## Structure
 
@@ -65,7 +79,10 @@ src/
   lib/fileRules.ts      limites, formats, dossiers exclus, secrets, programmes déguisés
   lib/readDrop.ts       lecture des fichiers et dossiers déposés
   i18n/fr.ts            tous les textes (français pour la bêta)
+  demo/demoApi.ts       mode démonstration (données en mémoire)
 supabase/
-  migrations/           schéma `transfer`, règles d'accès, fonctions
+  migrations/           schéma `transfer`, règles d'accès, fonctions SQL
+  functions/            fonctions serveur (Deno) et leurs tests
   tests/                tests SQL des règles d'accès
+.github/workflows/      vérifications, déploiement Supabase, nettoyage horaire
 ```

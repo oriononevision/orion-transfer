@@ -68,7 +68,7 @@ export const fr = {
   'send.secret': 'Ce fichier semble contenir des clés ou des mots de passe.',
   'send.secretRemove': 'Retirer ce fichier',
   'send.secretKeep': 'Je l’envoie quand même',
-  'send.executable': 'Son contenu correspond à un programme. Il sera refusé par le serveur.',
+  'send.executable': 'Non ajouté : son contenu correspond à un programme, même si son nom dit autre chose.',
   'send.rejected.blocked-type': 'Non ajouté : les programmes d’installation ne peuvent pas être envoyés.',
   'send.rejected.too-large': 'Non ajouté : {size}, la limite est de {max} par fichier.',
   'send.rejected.empty': 'Non ajouté : le fichier est vide.',

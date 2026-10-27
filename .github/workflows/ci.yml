@@ -1,0 +1,52 @@
+# Vérifications automatiques à chaque envoi de code : application, base,
+# fonctions serveur. Aucun secret nécessaire.
+name: Vérifications
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    name: Application web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  serveur:
+    name: Base de données et fonctions serveur
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Règles d'accès (SQL)
+        run: ./scripts/test-db.sh
+      - name: Vérification des types des fonctions
+        working-directory: supabase/functions
+        run: deno check */index.ts
+      - name: Parcours complet des fonctions serveur
+        run: ./scripts/test-functions.sh

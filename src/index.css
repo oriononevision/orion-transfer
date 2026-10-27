@@ -226,6 +226,7 @@ legend.field__label { margin-bottom: 10px; }
 .card--danger { background: transparent; border-color: rgba(255, 107, 122, 0.3); }
 .card p { margin: 0; }
 .person { display: flex; align-items: center; gap: 12px; }
+.person .row__title { white-space: normal; overflow-wrap: anywhere; }
 .icon-line { display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .icon-line svg { flex: none; color: var(--accent); }
 .ext { flex: none; width: 40px; height: 40px; border-radius: 10px; background: #121826; color: rgba(244, 247, 250, 0.75); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
@@ -240,6 +241,9 @@ legend.field__label { margin-bottom: 10px; }
 .notice svg { flex: none; }
 .notice--success { background: rgba(93, 222, 168, 0.08); border: 1px solid rgba(93, 222, 168, 0.3); }
 .notice--success svg { color: var(--success); }
+
+/* Démonstration */
+.demo-banner { margin: 0; padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 500; background: var(--accent-soft); color: var(--accent-text); border-bottom: 1px solid rgba(245, 158, 11, 0.3); }
 
 /* Petits écrans ----------------------------------------------------------- */
 @media (max-width: 640px) {
@@ -259,3 +263,7 @@ legend.field__label { margin-bottom: 10px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* Confirmation intégrée (pas de fenêtre du navigateur) */
+.confirm { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius); border: 1px solid rgba(255, 107, 122, 0.35); background: rgba(255, 107, 122, 0.06); }
+.confirm p { margin: 0; font-size: 14px; }

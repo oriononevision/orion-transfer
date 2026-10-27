@@ -1,0 +1,16 @@
+# Configuration Supabase de ORION Transfer (fonctions serveur).
+# project_id est renseigné par `supabase link` ; il n'est pas secret.
+project_id = "orion"
+
+[functions.transfer-create]
+verify_jwt = true
+
+[functions.transfer-complete]
+verify_jwt = true
+
+[functions.transfer-download]
+verify_jwt = true
+
+# Appelée par la tâche planifiée avec CRON_SECRET, pas par un utilisateur.
+[functions.transfer-cleanup]
+verify_jwt = false
