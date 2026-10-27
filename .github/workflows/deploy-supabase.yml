@@ -53,7 +53,7 @@ jobs:
 
       - name: Appliquer les migrations
         if: ${{ inputs.migrations }}
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --linked --password "$SUPABASE_DB_PASSWORD"
 
       - name: Enregistrer les secrets des fonctions
         env:
