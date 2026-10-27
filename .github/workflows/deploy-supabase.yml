@@ -28,16 +28,12 @@ jobs:
 
       - name: Vérifier les secrets
         env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           # Affiche seulement des noms et des diagnostics, jamais les valeurs.
           ok=1
-          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_REF R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET APP_URL CRON_SECRET; do
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD PROJECT_REF APP_URL CRON_SECRET; do
             if [ -z "${!name}" ]; then echo "::error::Secret manquant : ${name/PROJECT_REF/SUPABASE_PROJECT_REF}"; ok=0; fi
           done
           if [ -n "$PROJECT_REF" ] && ! [[ "$PROJECT_REF" =~ ^[a-z0-9]{20}$ ]]; then
@@ -61,11 +57,6 @@ jobs:
 
       - name: Enregistrer les secrets des fonctions
         env:
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           APP_URL: ${{ secrets.APP_URL }}
@@ -75,11 +66,6 @@ jobs:
           # Fichier temporaire, jamais affiché dans le journal.
           umask 077
           {
-            echo "R2_ACCOUNT_ID=$R2_ACCOUNT_ID"
-            echo "R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID"
-            echo "R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY"
-            echo "R2_BUCKET=$R2_BUCKET"
-            if [ -n "$R2_ENDPOINT" ]; then echo "R2_ENDPOINT=$R2_ENDPOINT"; fi
             echo "APP_URL=$APP_URL"
             echo "ALLOWED_ORIGINS=$ALLOWED_ORIGINS"
             echo "CRON_SECRET=$CRON_SECRET"
@@ -88,6 +74,8 @@ jobs:
           } > "$RUNNER_TEMP/functions.env"
           supabase secrets set --env-file "$RUNNER_TEMP/functions.env" --project-ref "$PROJECT_REF"
           rm -f "$RUNNER_TEMP/functions.env"
+          # Ancienne configuration Cloudflare R2 : retirée si elle existe.
+          supabase secrets unset R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET R2_ENDPOINT --project-ref "$PROJECT_REF" --yes < /dev/null || true
 
       - name: Déployer les fonctions
         run: |

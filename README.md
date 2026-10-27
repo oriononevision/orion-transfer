@@ -2,14 +2,14 @@
 
 Application web de l'écosystème ORION pour envoyer, recevoir et retrouver des fichiers de travail. Les comptes sont ceux d'ORION (même projet Supabase que ORION Core).
 
-> État : MVP complet, testé, pas encore mis en ligne. Interface, base de données, règles d'accès, fonctions serveur (dépôt et téléchargement via Cloudflare R2, e-mails via Resend, nettoyage) et mode démonstration. **Pour la mise en ligne, suivre [DEPLOIEMENT.md](DEPLOIEMENT.md).**
+> État : MVP complet, testé, pas encore mis en ligne. Interface, base de données, règles d'accès, fonctions serveur (dépôt et téléchargement via Supabase Storage, e-mails via Resend, nettoyage) et mode démonstration. **Pour la mise en ligne, suivre [DEPLOIEMENT.md](DEPLOIEMENT.md).**
 
 ## Pile
 
 - Vite + React 19 + TypeScript + React Router (comme ORION Core)
 - Supabase : comptes (partagés avec Core), base Postgres (schéma `transfer`), règles d'accès RLS
 - Supabase Edge Functions (Deno) : `transfer-create`, `transfer-complete`, `transfer-download`, `transfer-cleanup`
-- Cloudflare R2 pour les fichiers (bucket privé, URL signées de courte durée, dépôt direct depuis le navigateur)
+- Supabase Storage pour les fichiers (bucket privé `orion-transfer`, liens signés de courte durée, dépôt direct depuis le navigateur). Le client Cloudflare R2 (`storageR2.ts`) reste dans le code mais n'est plus branché.
 - Resend pour les e-mails d'invitation
 - Vitest (règles de fichiers, statuts) et tests SQL sur un Postgres local (règles d'accès)
 
@@ -54,7 +54,7 @@ Même application, données fictives en mémoire, aucun serveur ; un bandeau le 
 - un destinataire ne voit rien tant que les fichiers ne sont pas vérifiés, et plus rien après un retrait d'accès ou une suppression ;
 - une adresse non vérifiée ne peut ni envoyer ni récupérer une invitation ;
 - le navigateur ne peut rien écrire directement, ni lire les clés de stockage ou savoir qui possède un compte ;
-- limites : 250 Mo par fichier, 1 Go et 20 fichiers par envoi, 2 Go de stockage actif, 20 envois par jour, programmes refusés.
+- limites : 50 Mo par fichier (maximum de l'offre gratuite Supabase), 500 Mo et 20 fichiers par envoi, 500 Mo de stockage actif, 20 envois par jour, programmes refusés.
 
 ## Sécurité : où les règles s'appliquent
 

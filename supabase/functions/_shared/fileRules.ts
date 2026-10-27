@@ -11,13 +11,17 @@
 
 const MB = 1024 * 1024
 
-/** Doit rester identique à transfer.limits() côté base. */
+/**
+ * Doit rester identique à transfer.limits() côté base
+ * (migration 20261027190000_supabase_storage.sql).
+ * 50 Mo par fichier : maximum de l'offre gratuite de Supabase Storage.
+ */
 export const LIMITS = {
-  maxFileBytes: 250 * MB,
-  maxTransferBytes: 1024 * MB,
+  maxFileBytes: 50 * MB,
+  maxTransferBytes: 500 * MB,
   maxFiles: 20,
   maxRecipients: 20,
-  maxActiveBytes: 2048 * MB,
+  maxActiveBytes: 500 * MB,
   expiryDays: [1, 7, 14] as const,
   defaultExpiryDays: 7,
   maxMessageChars: 2000,

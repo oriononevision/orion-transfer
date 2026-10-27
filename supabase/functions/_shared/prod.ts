@@ -4,7 +4,6 @@
  */
 import { SupabaseDb } from './dbSupabase.ts'
 import type { Deps, Mail, Mailer, Storage } from './deps.ts'
-import { R2Storage } from './storageR2.ts'
 import { SupabaseStorage } from './storageSupabase.ts'
 
 function env(name: string, required = true): string {
@@ -13,25 +12,12 @@ function env(name: string, required = true): string {
   return value
 }
 
+/** Stockage : bucket privé Supabase Storage (seule solution retenue). */
 function buildStorage(): Storage {
-  const accountId = env('R2_ACCOUNT_ID', false)
-  const accessKeyId = env('R2_ACCESS_KEY_ID', false)
-  const secretAccessKey = env('R2_SECRET_ACCESS_KEY', false)
-  const bucket = env('R2_BUCKET', false) || env('TRANSFER_BUCKET', false) || 'orion-transfer'
-  if (accountId && accessKeyId && secretAccessKey) {
-    return new R2Storage({
-      accountId,
-      accessKeyId,
-      secretAccessKey,
-      bucket,
-      endpoint: env('R2_ENDPOINT', false) || undefined,
-    })
-  }
-  // Secours : bucket privé Supabase Storage (sans Cloudflare R2).
   return new SupabaseStorage({
     url: env('SUPABASE_URL'),
     serviceKey: env('SUPABASE_SERVICE_ROLE_KEY'),
-    bucket,
+    bucket: env('TRANSFER_BUCKET', false) || 'orion-transfer',
   })
 }
 

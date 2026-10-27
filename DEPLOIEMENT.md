@@ -1,6 +1,6 @@
 # Mettre ORION Transfer en ligne
 
-Ce guide part du code prêt dans ce dépôt. Chaque étape se fait une seule fois, dans un navigateur. Comptez environ une heure en tout.
+Ce guide part du code prêt dans ce dépôt. Le stockage se fait dans Supabase (Cloudflare R2 n'est plus utilisé). Chaque étape se fait une seule fois, dans un navigateur. Comptez environ 45 minutes en tout.
 
 Les étapes marquées **Associé** touchent la base Supabase partagée avec ORION Core : faites-les avec la personne responsable de Core.
 
@@ -26,25 +26,11 @@ Les étapes marquées **Associé** touchent la base Supabase partagée avec ORIO
 4. **Account → Access Tokens** : révoquez l'ancienne clé `sbp_…` partagée dans une conversation, puis créez-en une nouvelle réservée au déploiement. Elle ira **uniquement** dans les secrets GitHub (étape 5).
 5. Notez la **référence du projet** (Settings → General → Reference ID) et le **mot de passe de la base**.
 
-## 3. Cloudflare R2 — stocker les fichiers (10 min)
+## 3. Stockage des fichiers — Supabase Storage
 
-1. Créez un compte sur [cloudflare.com](https://dash.cloudflare.com) et activez **R2**. Vérifiez les conditions de l'offre gratuite au moment de l'inscription.
-2. **R2 → Create bucket** : nom `orion-transfer`. Dans **Location**, choisissez **Specify jurisdiction → European Union (EU)** : les fichiers restent alors dans l'Union européenne. Laissez le bucket **privé** : ne lui donnez aucun accès public.
-3. Dans le bucket, ouvrez **Settings → CORS policy** et collez (en remplaçant ADRESSE) :
-   ```json
-   [
-     {
-       "AllowedOrigins": ["ADRESSE", "http://localhost:5175"],
-       "AllowedMethods": ["PUT"],
-       "AllowedHeaders": ["content-type"],
-       "MaxAgeSeconds": 3600
-     }
-   ]
-   ```
-4. **R2 → Manage API tokens → Create API token** : permission **Object Read & Write**, limitée au bucket `orion-transfer`. Notez :
-   - l'**Account ID** ;
-   - l'**Access Key ID** ;
-   - la **Secret Access Key**, affichée une seule fois.
+Rien à faire à la main : la migration crée elle-même le bucket **privé** `orion-transfer` dans Supabase Storage. Les fichiers ne sortent que par des liens signés de courte durée.
+
+Limites liées à l'offre gratuite de Supabase : **50 Mo par fichier** et 1 Go de stockage pour tout le projet. L'application applique donc 50 Mo par fichier, 500 Mo par envoi et 500 Mo de stockage actif par personne. Pour les relever avec l'offre Pro, modifiez `transfer.limits()` (nouvelle migration), `LIMITS` dans `supabase/functions/_shared/fileRules.ts`, et la limite du bucket.
 
 ## 4. Resend — e-mails d'invitation (facultatif au début)
 
@@ -64,11 +50,6 @@ Dans le dépôt, ouvrez **Settings → Secrets and variables → Actions → New
 | `SUPABASE_ACCESS_TOKEN` | la nouvelle clé de l'étape 2.4 |
 | `SUPABASE_PROJECT_REF` | la référence du projet |
 | `SUPABASE_DB_PASSWORD` | le mot de passe de la base |
-| `R2_ACCOUNT_ID` | Account ID Cloudflare |
-| `R2_ACCESS_KEY_ID` | Access Key ID R2 |
-| `R2_SECRET_ACCESS_KEY` | Secret Access Key R2 |
-| `R2_BUCKET` | `orion-transfer` |
-| `R2_ENDPOINT` | `https://<Account ID>.eu.r2.cloudflarestorage.com` (seulement pour un bucket en juridiction UE) |
 | `APP_URL` | ADRESSE |
 | `ALLOWED_ORIGINS` | `ADRESSE,http://localhost:5175` |
 | `CRON_SECRET` | une longue chaîne aléatoire (par exemple générée par un gestionnaire de mots de passe) |
@@ -95,6 +76,6 @@ En cas de problème :
 | Symptôme | Cause probable |
 |---|---|
 | « Impossible de charger vos transferts » | Le schéma `transfer` n'est pas dans Exposed schemas (étape 2.2), ou la migration n'est pas appliquée. |
-| L'envoi échoue juste après « Envoyer » | La politique CORS du bucket R2 (étape 3.3) ne contient pas ADRESSE. |
+| L'envoi échoue juste après « Envoyer » | Le bucket `orion-transfer` n'existe pas (migration non appliquée) ou le fichier dépasse 50 Mo. |
 | Erreur « Une erreur est survenue » à l'envoi | Un secret manque côté fonctions. Consultez Supabase → Edge Functions → Logs. |
 | Le lien de connexion ramène à la page de connexion | ADRESSE/auth/callback manque dans les Redirect URLs (étape 2.3). |

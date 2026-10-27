@@ -265,6 +265,8 @@ export function uploadToSignedUrl(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', url)
+    // Type générique : le stockage ne doit jamais interpréter le fichier.
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total)
     }
