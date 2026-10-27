@@ -14,3 +14,4 @@ dist-ssr
 supabase/.temp
 supabase/.branches
 .env*
+!.env.example

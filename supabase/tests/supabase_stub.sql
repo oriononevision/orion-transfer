@@ -35,7 +35,8 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text,
   first_name text,
-  last_name text
+  last_name text,
+  org_name text
 );
 
 -- Publication utilisée par Supabase Realtime.
