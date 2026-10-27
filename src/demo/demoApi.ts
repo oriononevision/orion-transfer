@@ -271,3 +271,24 @@ export async function downloadFile(fid: string) {
   }
   throw new Error('not_found')
 }
+
+// Simulation de la réception en direct : Sam envoie un fichier peu après
+// l'ouverture de la démo, sans que la page soit rechargée.
+let simulated = false
+export function subscribe(onChange: () => void): () => void {
+  const timer = simulated
+    ? undefined
+    : setTimeout(() => {
+        simulated = true
+        seed({
+          from: ['Sam Leroy', 'sam@orion.dev'],
+          minutesAgo: 0,
+          expiresInDays: 7,
+          message: 'Nouvelle version du Hub, à tester avant ce soir',
+          files: [['orion-hub-v3.1.zip', 5.2 * MB]],
+          recipients: [[DEMO_USER.email, null]],
+        })
+        onChange()
+      }, 6000)
+  return () => clearTimeout(timer)
+}

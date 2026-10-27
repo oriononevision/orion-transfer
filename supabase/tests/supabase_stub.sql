@@ -37,3 +37,10 @@ create table if not exists public.profiles (
   first_name text,
   last_name text
 );
+
+-- Publication utilisée par Supabase Realtime.
+do $$ begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end $$;

@@ -273,6 +273,8 @@ select tests.fails($q$select * from transfer.transfers$q$, 'permission denied', 
 select tests.fails($q$select transfer.inbox()$q$, 'permission denied', 'un visiteur non connecté ne peut appeler aucune fonction');
 
 reset role;
+select tests.ok((select count(*) from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'transfer') = 2,
+  'le temps réel est activé sur les transferts et les destinataires');
 \o
 \echo
 \echo 'Tous les tests de règles d''accès sont passés.'

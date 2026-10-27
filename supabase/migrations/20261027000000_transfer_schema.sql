@@ -901,6 +901,24 @@ to authenticated;
 grant execute on all functions in schema transfer to service_role;
 
 -- ---------------------------------------------------------------------------
+-- Temps réel : quand un transfert devient « prêt », ou qu'un destinataire
+-- télécharge, Supabase prévient les navigateurs concernés. Les règles
+-- d'accès (RLS) s'appliquent : chacun n'est prévenu que de ce qu'il peut lire.
+-- ---------------------------------------------------------------------------
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'transfer' and tablename = 'transfers') then
+      alter publication supabase_realtime add table transfer.transfers;
+    end if;
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'transfer' and tablename = 'recipients') then
+      alter publication supabase_realtime add table transfer.recipients;
+    end if;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Expiration automatique (si pg_cron est activé)
 -- ---------------------------------------------------------------------------
 

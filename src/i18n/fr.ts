@@ -36,7 +36,7 @@ export const fr = {
 
   'tabs.inbox': 'Reçus',
   'tabs.outbox': 'Envoyés',
-  'tabs.new': '{count} nouveau',
+  'tabs.new': '{count} {count|nouveau|nouveaux}',
   'list.loading': 'Chargement des transferts',
   'list.emptyInbox': 'Rien reçu pour l’instant',
   'list.emptyInboxHint': 'Les fichiers qu’on vous envoie apparaîtront ici.',
@@ -46,6 +46,9 @@ export const fr = {
   'list.files': '{count} {count|fichier|fichiers} · {size}',
   'list.error': 'Impossible de charger vos transferts. Vérifiez votre connexion puis réessayez.',
   'list.retry': 'Réessayer',
+  'live.received': '{sender} vous a envoyé {count} {count|fichier|fichiers}',
+  'live.open': 'Ouvrir',
+  'live.dismiss': 'Fermer la notification',
 
   'status.new': 'Nouveau',
   'status.downloaded': 'Téléchargé',

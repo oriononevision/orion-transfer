@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { Folder, Inbox, Upload } from 'lucide-react'
-import { fetchInbox, fetchOutbox, fetchUsage, type InboxItem, type OutboxItem } from '../api/transfers'
+import { Link, useNavigate } from 'react-router-dom'
+import { Folder, Inbox, Upload, X } from 'lucide-react'
+import { fetchInbox, fetchOutbox, fetchUsage, subscribeToChanges, type InboxItem, type OutboxItem } from '../api/transfers'
 import Header from '../components/Header'
 import SendPanel from '../components/SendPanel'
 import StatusPill from '../components/StatusPill'
@@ -21,13 +21,22 @@ export default function TransfersPage() {
   const [loadError, setLoadError] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [pending, setPending] = useState<Collected | null>(null)
+  const [arrival, setArrival] = useState<InboxItem | null>(null)
   const filesInput = useRef<HTMLInputElement>(null)
   const folderInput = useRef<HTMLInputElement>(null)
+  const seenIds = useRef<Set<string> | null>(null)
+  const navigate = useNavigate()
 
   const load = useCallback(async () => {
     setLoadError(false)
     try {
       const [i, o, u] = await Promise.all([fetchInbox(), fetchOutbox(), fetchUsage()])
+      // Nouveau transfert reçu depuis le dernier chargement : on le signale.
+      if (seenIds.current) {
+        const fresh = i.find((item) => !seenIds.current!.has(item.id) && item.status === 'ready')
+        if (fresh) setArrival(fresh)
+      }
+      seenIds.current = new Set(i.map((item) => item.id))
       setInbox(i)
       setOutbox(o)
       setUsage(u.active_bytes)
@@ -39,6 +48,36 @@ export default function TransfersPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Réception en direct, avec deux filets de sécurité : rechargement quand
+  // l'onglet redevient actif, et toutes les 30 secondes s'il est visible.
+  useEffect(() => {
+    let timer: number | undefined
+    const refresh = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => void load(), 400)
+    }
+    const unsubscribe = subscribeToChanges(refresh)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load()
+    }, 30_000)
+    return () => {
+      unsubscribe()
+      window.clearTimeout(timer)
+      window.clearInterval(poll)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [load])
+
+  // Le nombre de nouveaux transferts apparaît aussi dans le titre de l'onglet.
+  const unseen = inbox?.filter((i) => i.status === 'ready' && !i.first_downloaded_at).length ?? 0
+  useEffect(() => {
+    document.title = unseen > 0 ? `(${unseen}) ${t('app.name')}` : t('app.name')
+  }, [unseen])
 
   // React ne connaît pas l'attribut de sélection de dossier.
   useEffect(() => {
@@ -52,7 +91,7 @@ export default function TransfersPage() {
     setPending(await fromDataTransfer(event.dataTransfer))
   }
 
-  const newCount = inbox?.filter((i) => i.status === 'ready' && !i.first_downloaded_at).length ?? 0
+  const newCount = unseen
   const rows = tab === 'inbox' ? inbox : outbox
 
   return (
@@ -221,6 +260,28 @@ export default function TransfersPage() {
           <p className="muted small">{t('list.expiredNote')}</p>
         </section>
       </main>
+
+      {arrival ? (
+        <div className="toast" role="status" aria-live="polite">
+          <Inbox size={20} className="toast__icon" aria-hidden="true" />
+          <span className="toast__text">
+            {t('live.received', { sender: arrival.sender_name || arrival.sender_email, count: arrival.file_count })}
+          </span>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            onClick={() => {
+              setArrival(null)
+              navigate(`/t/${arrival.id}`)
+            }}
+          >
+            {t('live.open')}
+          </button>
+          <button type="button" className="icon-btn" onClick={() => setArrival(null)} aria-label={t('live.dismiss')}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
 
       {pending ? (
         <SendPanel

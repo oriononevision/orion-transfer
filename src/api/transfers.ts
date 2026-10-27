@@ -239,3 +239,25 @@ export function uploadToSignedUrl(
     xhr.send(file)
   })
 }
+
+// ---------------------------------------------------------------------------
+// Réception en direct
+// ---------------------------------------------------------------------------
+
+/**
+ * Prévient dès qu'un transfert reçu devient disponible, ou qu'un destinataire
+ * télécharge un envoi. Supabase Realtime n'envoie à chaque navigateur que les
+ * changements que ses règles d'accès l'autorisent à lire.
+ * Renvoie une fonction pour se désabonner.
+ */
+export function subscribeToChanges(onChange: () => void): () => void {
+  if (IS_DEMO) return demo.subscribe(onChange)
+  const channel = supabase
+    .channel('transfer-live')
+    .on('postgres_changes', { event: '*', schema: 'transfer', table: 'transfers' }, onChange)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'transfer', table: 'recipients' }, onChange)
+    .subscribe()
+  return () => {
+    void supabase.removeChannel(channel)
+  }
+}
