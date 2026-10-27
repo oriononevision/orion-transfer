@@ -30,7 +30,7 @@ Les étapes marquées **Associé** touchent la base Supabase partagée avec ORIO
 
 Rien à faire à la main : la migration crée elle-même le bucket **privé** `orion-transfer` dans Supabase Storage. Les fichiers ne sortent que par des liens signés de courte durée.
 
-Limites liées à l'offre gratuite de Supabase : **50 Mo par fichier** et 1 Go de stockage pour tout le projet. L'application applique donc 50 Mo par fichier, 500 Mo par envoi et 500 Mo de stockage actif par personne. Pour les relever avec l'offre Pro, modifiez `transfer.limits()` (nouvelle migration), `LIMITS` dans `supabase/functions/_shared/fileRules.ts`, et la limite du bucket.
+Les envois jusqu’à **1 Go** passent par **Cloudflare R2** (obligatoire). Sans les secrets R2, Supabase Storage est utilisé en secours et refuse typiquement les fichiers > ~50 Mo en fin d’upload.
 
 ## 4. Resend — e-mails d'invitation (facultatif au début)
 
