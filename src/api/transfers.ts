@@ -186,7 +186,10 @@ export type OrionMember = {
   display_name: string | null
 }
 
-/** Membres ORION (profils) pour le destinataire « membre ». */
+/**
+ * Contacts déjà croisés via un transfert (pas l’annuaire ORION entier).
+ * Pour une nouvelle adresse : saisie e-mail exacte dans le panneau d’envoi.
+ */
 export async function searchOrionMembers(query = '', limit = 12): Promise<OrionMember[]> {
   if (IS_DEMO) {
     const demo = [
@@ -194,9 +197,11 @@ export async function searchOrionMembers(query = '', limit = 12): Promise<OrionM
       { id: 'demo-2', email: 'bob@orion.dev', display_name: 'Bob' },
     ]
     const q = query.trim().toLowerCase()
-    return demo.filter((m) => !q || m.email.includes(q) || (m.display_name?.toLowerCase().includes(q) ?? false)).slice(0, limit)
+    return demo
+      .filter((m) => !q || m.email.includes(q) || (m.display_name?.toLowerCase().includes(q) ?? false))
+      .slice(0, limit)
   }
-  const { data, error } = await transferDb.rpc('search_members', {
+  const { data, error } = await transferDb.rpc('search_contacts', {
     p_query: query,
     p_limit: limit,
   })
