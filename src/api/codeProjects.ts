@@ -9,11 +9,19 @@ function fail(error: { message?: string } | null | undefined): never {
   throw new TransferError(error?.message?.trim() || 'unknown')
 }
 
+export type IdeLinks = {
+  vscode?: boolean
+  cursor?: boolean
+  github?: boolean
+}
+
 export type CodeProjectListItem = {
   id: string
   name: string
   description: string | null
   github_url: string | null
+  cover_image: string | null
+  ide_links: IdeLinks | null
   invite_token: string
   created_at: string
   updated_at: string
@@ -47,6 +55,8 @@ export type CodeProjectDetail = {
   name: string
   description: string | null
   github_url: string | null
+  cover_image: string | null
+  ide_links: IdeLinks | null
   invite_token: string
   role: 'owner' | 'member'
   last_seen_revision_id: string | null
@@ -66,6 +76,8 @@ function demoSeed(): void {
     name: 'Démo partagée',
     description: 'Exemple de projet code (mode démo).',
     github_url: null,
+    cover_image: null,
+    ide_links: { vscode: true, cursor: true, github: false },
     invite_token: 'demo-invite-token',
     role: 'owner',
     last_seen_revision_id: revId,
@@ -98,6 +110,8 @@ export async function listCodeProjects(): Promise<CodeProjectListItem[]> {
       name: p.name,
       description: p.description,
       github_url: p.github_url,
+      cover_image: p.cover_image,
+      ide_links: p.ide_links,
       invite_token: p.invite_token,
       created_at: p.latest_revision?.created_at ?? new Date().toISOString(),
       updated_at: p.latest_revision?.created_at ?? new Date().toISOString(),
@@ -119,6 +133,8 @@ export async function createCodeProject(input: {
   description?: string
   githubUrl?: string
   content?: string
+  coverImage?: string
+  ideLinks?: IdeLinks
 }): Promise<{ id: string; invite_token: string }> {
   if (IS_DEMO) {
     demoSeed()
@@ -129,6 +145,8 @@ export async function createCodeProject(input: {
       name: input.name,
       description: input.description ?? null,
       github_url: input.githubUrl ?? null,
+      cover_image: input.coverImage ?? null,
+      ide_links: input.ideLinks ?? { vscode: true, cursor: true, github: false },
       invite_token: `demo-${id}`,
       role: 'owner',
       last_seen_revision_id: revId,
@@ -158,6 +176,8 @@ export async function createCodeProject(input: {
     p_description: input.description ?? null,
     p_github_url: input.githubUrl ?? null,
     p_content: input.content ?? '',
+    p_cover_image: input.coverImage ?? null,
+    p_ide_links: input.ideLinks ?? {},
   })
   if (error) fail(error)
   const row = data as { id: string; invite_token: string }

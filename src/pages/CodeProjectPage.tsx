@@ -217,7 +217,12 @@ export default function CodeProjectPage() {
             </Link>
           </p>
           <div className="row-wrap between">
-            <h1 className="title title--sm">{project.name}</h1>
+            <div className="row-wrap" style={{ alignItems: 'center', gap: 14 }}>
+              {project.cover_image ? (
+                <img className="project-cover" src={project.cover_image} alt="" />
+              ) : null}
+              <h1 className="title title--sm">{project.name}</h1>
+            </div>
             <StatusPill
               tone={outdated ? 'accent' : 'success'}
               label={outdated ? t('code.statusOutdated') : t('code.statusUpToDate')}
@@ -283,19 +288,23 @@ export default function CodeProjectPage() {
           </h2>
           <p className="muted small">{t('code.ideHint')}</p>
           <div className="row-wrap">
-            <button type="button" className="btn btn--ghost" onClick={() => openIde('vscode')}>
-              <ExternalLink size={16} aria-hidden="true" />
-              {t('code.openVscode')}
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={() => openIde('cursor')}>
-              <ExternalLink size={16} aria-hidden="true" />
-              {t('code.openCursor')}
-            </button>
+            {project.ide_links?.vscode !== false ? (
+              <button type="button" className="btn btn--ghost" onClick={() => openIde('vscode')}>
+                <ExternalLink size={16} aria-hidden="true" />
+                {t('code.openVscode')}
+              </button>
+            ) : null}
+            {project.ide_links?.cursor !== false ? (
+              <button type="button" className="btn btn--ghost" onClick={() => openIde('cursor')}>
+                <ExternalLink size={16} aria-hidden="true" />
+                {t('code.openCursor')}
+              </button>
+            ) : null}
             <button type="button" className="btn btn--ghost" onClick={downloadZipHint}>
               <Download size={16} aria-hidden="true" />
               {t('code.download')}
             </button>
-            {project.github_url ? (
+            {project.ide_links?.github && project.github_url ? (
               <button type="button" className="btn btn--ghost" onClick={() => openIde('github')}>
                 <GitBranch size={16} aria-hidden="true" />
                 {t('code.openGithub')}

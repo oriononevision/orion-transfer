@@ -6,6 +6,7 @@ import { t } from './i18n'
 import AccountPage from './pages/AccountPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
 import CodeJoinPage from './pages/CodeJoinPage'
+import CodeOnboardingPage from './pages/CodeOnboardingPage'
 import CodeProjectPage from './pages/CodeProjectPage'
 import CodeProjectsPage from './pages/CodeProjectsPage'
 import LoginPage from './pages/LoginPage'
@@ -69,6 +70,7 @@ export default function App() {
             <Route index element={<TransfersPage />} />
             <Route path="t/:id" element={<TransferDetailPage />} />
             <Route path="code" element={<CodeProjectsPage />} />
+            <Route path="code/nouveau" element={<CodeOnboardingPage />} />
             <Route path="code/rejoindre/:token" element={<CodeJoinPage />} />
             <Route path="code/:id" element={<CodeProjectPage />} />
             <Route path="compte" element={<AccountPage />} />

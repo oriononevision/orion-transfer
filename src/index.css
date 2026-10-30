@@ -873,3 +873,92 @@ legend.field__label { margin-bottom: 10px; }
   .ide-sidebar { border-right: 0; border-bottom: 1px solid #232838; max-height: 240px; }
   .ide-editor { min-height: 280px; }
 }
+/* Onboarding projet code -------------------------------------------------- */
+.container--narrow { max-width: 680px; }
+.stack-20 { display: flex; flex-direction: column; gap: 20px; }
+.onboard-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.onboard-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.onboard-steps li.is-current { color: var(--text); font-weight: 600; }
+.onboard-steps li.is-done { color: var(--accent-text); }
+.onboard-steps__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  flex: none;
+}
+.onboard-steps li.is-current .onboard-steps__dot,
+.onboard-steps li.is-done .onboard-steps__dot {
+  background: var(--accent-soft);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: var(--accent);
+}
+.onboard-cover {
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  overflow: hidden;
+  background: rgba(255,255,255,0.02);
+}
+.onboard-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.onboard-cover__empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+.onboard-ide-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.onboard-ide-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  cursor: pointer;
+}
+.onboard-ide-card.is-on {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.08);
+}
+.onboard-ide-card input { margin-top: 3px; }
+.onboard-ide-card span { display: flex; flex-direction: column; gap: 2px; }
+.avatar--cover { object-fit: cover; padding: 0; }
+.project-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex: none;
+}
+@media (max-width: 640px) {
+  .onboard-steps { grid-template-columns: 1fr 1fr; }
+}
