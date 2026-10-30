@@ -207,76 +207,65 @@ export default function CodeProjectPage() {
   const outdated = project.is_outdated
 
   return (
-    <div className="page">
+    <div className="page page--ide">
       <Header />
-      <main className="container container--wide stack-24">
-        <div className="stack-6">
-          <p className="muted small">
-            <Link to="/code" className="text-link">
+      <main className="container container--ide stack-20">
+        <div className="ide-page-bar">
+          <div className="ide-page-bar__meta">
+            <Link to="/code" className="text-link small">
               {t('code.backList')}
             </Link>
-          </p>
-          <div className="row-wrap between">
-            <div className="row-wrap" style={{ alignItems: 'center', gap: 14 }}>
-              {project.cover_image ? (
-                <img className="project-cover" src={project.cover_image} alt="" />
-              ) : null}
-              <h1 className="title title--sm">{project.name}</h1>
+            <div className="ide-page-bar__title">
+              {project.cover_image ? <img className="project-cover" src={project.cover_image} alt="" /> : null}
+              <div>
+                <h1 className="title title--sm">{project.name}</h1>
+                {project.latest_revision ? (
+                  <p className="muted small" style={{ margin: 0 }}>
+                    {t('code.revisionMeta', {
+                      author: project.latest_revision.author || '—',
+                      date: formatDateTime(project.latest_revision.created_at),
+                    })}
+                  </p>
+                ) : null}
+              </div>
             </div>
+          </div>
+          <div className="ide-page-bar__actions">
             <StatusPill
               tone={outdated ? 'accent' : 'success'}
               label={outdated ? t('code.statusOutdated') : t('code.statusUpToDate')}
             />
-          </div>
-          {project.description ? <p className="muted">{project.description}</p> : null}
-          {project.latest_revision ? (
-            <p className="muted small">
-              {t('code.revisionMeta', {
-                author: project.latest_revision.author || '—',
-                date: formatDateTime(project.latest_revision.created_at),
-              })}
-            </p>
-          ) : null}
-        </div>
-
-        {outdated ? (
-          <div className="banner banner--accent" role="status">
-            <RefreshCw size={18} aria-hidden="true" />
-            <span>{t('code.outdatedBanner')}</span>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => void reloadLatest()}>
-              {t('code.reload')}
-            </button>
-          </div>
-        ) : null}
-
-        <CodeIde files={files} onChange={setFiles} disabled={busy} />
-
-        <form className="stack-16" onSubmit={onSend}>
-          <label className="field">
-            <span className="field__label">
-              {t('code.message')} <span className="muted">{t('send.optional')}</span>
-            </span>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              maxLength={500}
-              placeholder={t('code.messagePlaceholder')}
-            />
-          </label>
-          <div className="row-wrap">
-            <button type="submit" className="btn btn--primary" disabled={busy}>
-              <Send size={18} aria-hidden="true" />
-              {busy ? t('code.sending') : t('code.send')}
-            </button>
-            {sentFlash ? (
-              <span className="muted small" role="status">
-                <Check size={14} aria-hidden="true" /> {t('code.sent')}
-              </span>
+            {outdated ? (
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void reloadLatest()}>
+                <RefreshCw size={14} aria-hidden="true" />
+                {t('code.reload')}
+              </button>
             ) : null}
           </div>
+        </div>
+
+        <CodeIde files={files} onChange={setFiles} disabled={busy} projectName={project.name} />
+
+        <form className="ide-send-bar" onSubmit={onSend}>
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            maxLength={500}
+            placeholder={t('code.messagePlaceholder')}
+            aria-label={t('code.message')}
+          />
+          <button type="submit" className="btn btn--primary" disabled={busy}>
+            <Send size={18} aria-hidden="true" />
+            {busy ? t('code.sending') : t('code.send')}
+          </button>
+          {sentFlash ? (
+            <span className="muted small" role="status">
+              <Check size={14} aria-hidden="true" /> {t('code.sent')}
+            </span>
+          ) : null}
           {error ? (
-            <p className="error" role="alert">
+            <p className="error" role="alert" style={{ margin: 0, flexBasis: '100%' }}>
               {error}
             </p>
           ) : null}
