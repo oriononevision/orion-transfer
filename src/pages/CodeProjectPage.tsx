@@ -19,15 +19,23 @@ import {
   pushCodeRevision,
   type CodeProjectDetail,
 } from '../api/codeProjects'
+import CodeIde from '../components/CodeIde'
 import Header from '../components/Header'
 import StatusPill from '../components/StatusPill'
+import {
+  assertWorkspaceLimits,
+  emptyWorkspace,
+  parseWorkspace,
+  serializeWorkspace,
+  type FileMap,
+} from '../lib/codeWorkspace'
 import { errorMessage, formatDateTime, t } from '../i18n'
 
 export default function CodeProjectPage() {
   const { id = '' } = useParams()
   const [project, setProject] = useState<CodeProjectDetail | null>(null)
-  const [content, setContent] = useState('')
-  const [savedContent, setSavedContent] = useState('')
+  const [files, setFiles] = useState<FileMap>(emptyWorkspace)
+  const [savedRaw, setSavedRaw] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -35,17 +43,17 @@ export default function CodeProjectPage() {
   const [inviteNote, setInviteNote] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [sentFlash, setSentFlash] = useState(false)
-  const contentRef = useRef(content)
-  const savedRef = useRef(savedContent)
-  contentRef.current = content
-  savedRef.current = savedContent
+  const filesRef = useRef(files)
+  const savedRef = useRef(savedRaw)
+  filesRef.current = files
+  savedRef.current = savedRaw
 
   const applyProject = useCallback((data: CodeProjectDetail, replaceEditor: boolean) => {
     setProject(data)
-    const remote = data.latest_revision?.content ?? ''
+    const raw = data.latest_revision?.content ?? ''
     if (replaceEditor) {
-      setContent(remote)
-      setSavedContent(remote)
+      setFiles(parseWorkspace(raw))
+      setSavedRaw(raw || serializeWorkspace(emptyWorkspace()))
     }
   }, [])
 
@@ -54,7 +62,8 @@ export default function CodeProjectPage() {
     setError(null)
     try {
       const data = await getCodeProject(id)
-      const dirty = contentRef.current !== savedRef.current
+      const currentRaw = serializeWorkspace(filesRef.current)
+      const dirty = currentRaw !== savedRef.current
       const replace = Boolean(opts?.forceContent) || !dirty
       applyProject(data, replace)
     } catch (err) {
@@ -92,11 +101,17 @@ export default function CodeProjectPage() {
   const onSend = async (e: FormEvent) => {
     e.preventDefault()
     if (!id || busy) return
+    const limit = assertWorkspaceLimits(files)
+    if (limit) {
+      setError(errorMessage(new Error(limit)))
+      return
+    }
     setBusy(true)
     setError(null)
+    const raw = serializeWorkspace(files)
     try {
-      await pushCodeRevision(id, content, message.trim() || undefined)
-      setSavedContent(content)
+      await pushCodeRevision(id, raw, message.trim() || undefined)
+      setSavedRaw(raw)
       setMessage('')
       setSentFlash(true)
       window.setTimeout(() => setSentFlash(false), 2500)
@@ -136,12 +151,13 @@ export default function CodeProjectPage() {
     }
   }
 
-  const downloadFile = () => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const downloadZipHint = () => {
+    // Télécharge le fichier actif sous forme d’archive JSON lisible.
+    const blob = new Blob([serializeWorkspace(files)], { type: 'application/json;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${project?.name || 'projet'}.txt`
+    a.download = `${project?.name || 'projet'}.orion-code.json`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -151,13 +167,9 @@ export default function CodeProjectPage() {
       window.open(project.github_url, '_blank', 'noopener,noreferrer')
       return
     }
-    // Contenu distant : on ouvre l’IDE via protocole + fichier téléchargé côté utilisateur.
-    downloadFile()
-    if (kind === 'vscode') {
-      window.location.href = 'vscode://'
-    } else if (kind === 'cursor') {
-      window.location.href = 'cursor://'
-    }
+    downloadZipHint()
+    if (kind === 'vscode') window.location.href = 'vscode://'
+    else if (kind === 'cursor') window.location.href = 'cursor://'
   }
 
   if (error && !project) {
@@ -197,7 +209,7 @@ export default function CodeProjectPage() {
   return (
     <div className="page">
       <Header />
-      <main className="container stack-24">
+      <main className="container container--wide stack-24">
         <div className="stack-6">
           <p className="muted small">
             <Link to="/code" className="text-link">
@@ -232,17 +244,9 @@ export default function CodeProjectPage() {
           </div>
         ) : null}
 
+        <CodeIde files={files} onChange={setFiles} disabled={busy} />
+
         <form className="stack-16" onSubmit={onSend}>
-          <label className="field field--editor">
-            <span className="field__label">{t('code.editor')}</span>
-            <textarea
-              className="code-editor"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              spellCheck={false}
-              rows={18}
-            />
-          </label>
           <label className="field">
             <span className="field__label">
               {t('code.message')} <span className="muted">{t('send.optional')}</span>
@@ -287,7 +291,7 @@ export default function CodeProjectPage() {
               <ExternalLink size={16} aria-hidden="true" />
               {t('code.openCursor')}
             </button>
-            <button type="button" className="btn btn--ghost" onClick={downloadFile}>
+            <button type="button" className="btn btn--ghost" onClick={downloadZipHint}>
               <Download size={16} aria-hidden="true" />
               {t('code.download')}
             </button>

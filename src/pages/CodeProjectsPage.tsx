@@ -43,7 +43,12 @@ export default function CodeProjectsPage() {
         name: name.trim(),
         description: description.trim() || undefined,
         githubUrl: githubUrl.trim() || undefined,
-        content: '// Nouveau projet partagé\n',
+        content: JSON.stringify({
+          v: 1,
+          files: {
+            'README.md': `# ${name.trim()}\n\nOuvrez un dossier ou créez des fichiers pour collaborer.\n`,
+          },
+        }),
       })
       navigate(`/code/${created.id}`)
     } catch (err) {
