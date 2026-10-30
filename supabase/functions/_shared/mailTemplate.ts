@@ -67,3 +67,39 @@ ${message ? `<p style="margin:0 0 24px;padding:16px;border-radius:12px;backgroun
 
   return { to: input.to, subject, html, text }
 }
+
+/** Invitation à un projet de code partagé. */
+export function codeInviteMail(input: {
+  to: string
+  senderName: string | null
+  senderEmail: string
+  projectName: string
+  joinUrl: string
+}): Mail {
+  const sender = oneLine(input.senderName || input.senderEmail, 80)
+  const project = oneLine(input.projectName, 100)
+  const subject = oneLine(`${sender} vous invite sur « ${project} »`, 150)
+  const text = [
+    `${sender} (${input.senderEmail}) vous invite à rejoindre le projet de code partagé « ${project} » sur ORION Transfer.`,
+    `\nOuvrez ce lien pour rejoindre :`,
+    input.joinUrl,
+    `\nVous ne connaissez pas l'expéditeur ? Ignorez simplement cet e-mail.`,
+  ].join('\n')
+
+  const html = `<!doctype html>
+<html lang="fr"><body style="margin:0;background:#06080f;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;color:#f4f7fa">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#0c101a;border:1px solid #232838;border-radius:16px">
+<tr><td style="padding:32px">
+<p style="margin:0 0 24px;font-size:13px;letter-spacing:4px;color:#f4f7fa">ORION <span style="color:#f59e0b;letter-spacing:3px">TRANSFER</span></p>
+<h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#f4f7fa">${escapeHtml(sender)} vous invite sur « ${escapeHtml(project)} »</h1>
+<p style="margin:0 0 20px;font-size:14px;color:#a7aab0">${escapeHtml(input.senderEmail)}</p>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.5;color:#f4f7fa">Rejoignez ce projet de code partagé pour lire et envoyer des mises à jour à l’équipe.</p>
+<p style="margin:0 0 24px"><a href="${escapeHtml(input.joinUrl)}" style="display:inline-block;padding:14px 24px;border-radius:999px;background:#f59e0b;color:#06080f;font-weight:bold;text-decoration:none">Rejoindre le projet</a></p>
+<p style="margin:0;font-size:13px;color:#a7aab0">Vous ne connaissez pas l'expéditeur ? Ignorez simplement cet e-mail.</p>
+</td></tr></table>
+</td></tr></table>
+</body></html>`
+
+  return { to: input.to, subject, html, text }
+}

@@ -1,0 +1,350 @@
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  GitBranch,
+  Link2,
+  Mail,
+  RefreshCw,
+  Send,
+} from 'lucide-react'
+import {
+  getCodeProject,
+  inviteCodeByEmail,
+  markCodeSeen,
+  projectShareUrl,
+  pushCodeRevision,
+  type CodeProjectDetail,
+} from '../api/codeProjects'
+import Header from '../components/Header'
+import StatusPill from '../components/StatusPill'
+import { errorMessage, formatDateTime, t } from '../i18n'
+
+export default function CodeProjectPage() {
+  const { id = '' } = useParams()
+  const [project, setProject] = useState<CodeProjectDetail | null>(null)
+  const [content, setContent] = useState('')
+  const [savedContent, setSavedContent] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteNote, setInviteNote] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [sentFlash, setSentFlash] = useState(false)
+  const contentRef = useRef(content)
+  const savedRef = useRef(savedContent)
+  contentRef.current = content
+  savedRef.current = savedContent
+
+  const applyProject = useCallback((data: CodeProjectDetail, replaceEditor: boolean) => {
+    setProject(data)
+    const remote = data.latest_revision?.content ?? ''
+    if (replaceEditor) {
+      setContent(remote)
+      setSavedContent(remote)
+    }
+  }, [])
+
+  const load = useCallback(async (opts?: { forceContent?: boolean }) => {
+    if (!id) return
+    setError(null)
+    try {
+      const data = await getCodeProject(id)
+      const dirty = contentRef.current !== savedRef.current
+      const replace = Boolean(opts?.forceContent) || !dirty
+      applyProject(data, replace)
+    } catch (err) {
+      setError(errorMessage(err))
+      setProject((prev) => prev)
+    }
+  }, [id, applyProject])
+
+  useEffect(() => {
+    void load({ forceContent: true })
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load()
+    }, 20_000)
+    return () => window.clearInterval(poll)
+  }, [id, load])
+
+  const reloadLatest = async () => {
+    if (!id) return
+    try {
+      const data = await getCodeProject(id)
+      applyProject(data, true)
+      if (data.latest_revision) {
+        await markCodeSeen(id, data.latest_revision.id)
+        setProject({
+          ...data,
+          is_outdated: false,
+          last_seen_revision_id: data.latest_revision.id,
+        })
+      }
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  const onSend = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!id || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await pushCodeRevision(id, content, message.trim() || undefined)
+      setSavedContent(content)
+      setMessage('')
+      setSentFlash(true)
+      window.setTimeout(() => setSentFlash(false), 2500)
+      await load({ forceContent: true })
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const copyLink = async () => {
+    if (!project) return
+    const url = projectShareUrl(project.invite_token)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setInviteNote(url)
+    }
+  }
+
+  const onInvite = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!id || !inviteEmail.trim()) return
+    setBusy(true)
+    setInviteNote(null)
+    try {
+      await inviteCodeByEmail(id, inviteEmail.trim())
+      setInviteNote(t('code.inviteSent', { email: inviteEmail.trim() }))
+      setInviteEmail('')
+    } catch (err) {
+      setInviteNote(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const downloadFile = () => {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${project?.name || 'projet'}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const openIde = (kind: 'vscode' | 'cursor' | 'github') => {
+    if (kind === 'github' && project?.github_url) {
+      window.open(project.github_url, '_blank', 'noopener,noreferrer')
+      return
+    }
+    // Contenu distant : on ouvre l’IDE via protocole + fichier téléchargé côté utilisateur.
+    downloadFile()
+    if (kind === 'vscode') {
+      window.location.href = 'vscode://'
+    } else if (kind === 'cursor') {
+      window.location.href = 'cursor://'
+    }
+  }
+
+  if (error && !project) {
+    return (
+      <div className="page">
+        <Header />
+        <main className="container stack-16">
+          <Link to="/code" className="text-link">
+            {t('code.backList')}
+          </Link>
+          <div className="empty" role="alert">
+            <p>{error}</p>
+            <button type="button" className="btn btn--ghost" onClick={() => void load({ forceContent: true })}>
+              {t('list.retry')}
+            </button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!project) {
+    return (
+      <div className="page">
+        <Header />
+        <main className="container">
+          <p className="muted" role="status">
+            {t('auth.loading')}
+          </p>
+        </main>
+      </div>
+    )
+  }
+
+  const outdated = project.is_outdated
+
+  return (
+    <div className="page">
+      <Header />
+      <main className="container stack-24">
+        <div className="stack-6">
+          <p className="muted small">
+            <Link to="/code" className="text-link">
+              {t('code.backList')}
+            </Link>
+          </p>
+          <div className="row-wrap between">
+            <h1 className="title title--sm">{project.name}</h1>
+            <StatusPill
+              tone={outdated ? 'accent' : 'success'}
+              label={outdated ? t('code.statusOutdated') : t('code.statusUpToDate')}
+            />
+          </div>
+          {project.description ? <p className="muted">{project.description}</p> : null}
+          {project.latest_revision ? (
+            <p className="muted small">
+              {t('code.revisionMeta', {
+                author: project.latest_revision.author || '—',
+                date: formatDateTime(project.latest_revision.created_at),
+              })}
+            </p>
+          ) : null}
+        </div>
+
+        {outdated ? (
+          <div className="banner banner--accent" role="status">
+            <RefreshCw size={18} aria-hidden="true" />
+            <span>{t('code.outdatedBanner')}</span>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => void reloadLatest()}>
+              {t('code.reload')}
+            </button>
+          </div>
+        ) : null}
+
+        <form className="stack-16" onSubmit={onSend}>
+          <label className="field field--editor">
+            <span className="field__label">{t('code.editor')}</span>
+            <textarea
+              className="code-editor"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              spellCheck={false}
+              rows={18}
+            />
+          </label>
+          <label className="field">
+            <span className="field__label">
+              {t('code.message')} <span className="muted">{t('send.optional')}</span>
+            </span>
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              maxLength={500}
+              placeholder={t('code.messagePlaceholder')}
+            />
+          </label>
+          <div className="row-wrap">
+            <button type="submit" className="btn btn--primary" disabled={busy}>
+              <Send size={18} aria-hidden="true" />
+              {busy ? t('code.sending') : t('code.send')}
+            </button>
+            {sentFlash ? (
+              <span className="muted small" role="status">
+                <Check size={14} aria-hidden="true" /> {t('code.sent')}
+              </span>
+            ) : null}
+          </div>
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </form>
+
+        <section className="stack-12" aria-labelledby="ide-title">
+          <h2 id="ide-title" className="section-title">
+            {t('code.ideTitle')}
+          </h2>
+          <p className="muted small">{t('code.ideHint')}</p>
+          <div className="row-wrap">
+            <button type="button" className="btn btn--ghost" onClick={() => openIde('vscode')}>
+              <ExternalLink size={16} aria-hidden="true" />
+              {t('code.openVscode')}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={() => openIde('cursor')}>
+              <ExternalLink size={16} aria-hidden="true" />
+              {t('code.openCursor')}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={downloadFile}>
+              <Download size={16} aria-hidden="true" />
+              {t('code.download')}
+            </button>
+            {project.github_url ? (
+              <button type="button" className="btn btn--ghost" onClick={() => openIde('github')}>
+                <GitBranch size={16} aria-hidden="true" />
+                {t('code.openGithub')}
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="stack-12" aria-labelledby="share-title">
+          <h2 id="share-title" className="section-title">
+            {t('code.shareTitle')}
+          </h2>
+          <p className="muted small">{t('code.shareHint')}</p>
+          <div className="row-wrap">
+            <button type="button" className="btn btn--ghost" onClick={copyLink}>
+              {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+              {copied ? t('code.linkCopied') : t('code.copyLink')}
+            </button>
+            <span className="muted small mono truncate">
+              <Link2 size={14} aria-hidden="true" /> {projectShareUrl(project.invite_token)}
+            </span>
+          </div>
+          <form className="row-wrap" onSubmit={onInvite}>
+            <label className="field field--inline">
+              <span className="sr-only">{t('code.inviteEmail')}</span>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder={t('code.inviteEmail')}
+                required
+              />
+            </label>
+            <button type="submit" className="btn btn--primary" disabled={busy}>
+              <Mail size={16} aria-hidden="true" />
+              {t('code.inviteSend')}
+            </button>
+          </form>
+          {inviteNote ? (
+            <p className="muted small" role="status">
+              {inviteNote}
+            </p>
+          ) : null}
+          <ul className="member-list">
+            {project.members.map((m) => (
+              <li key={m.user_id}>
+                <span>{m.email}</span>
+                <span className="muted small">{m.role === 'owner' ? t('code.roleOwner') : t('code.roleMember')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </main>
+    </div>
+  )
+}

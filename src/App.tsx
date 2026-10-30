@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { t } from './i18n'
 import AccountPage from './pages/AccountPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
+import CodeJoinPage from './pages/CodeJoinPage'
+import CodeProjectPage from './pages/CodeProjectPage'
+import CodeProjectsPage from './pages/CodeProjectsPage'
 import LoginPage from './pages/LoginPage'
 import TransferDetailPage from './pages/TransferDetailPage'
 import TransfersPage from './pages/TransfersPage'
@@ -65,6 +68,9 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route index element={<TransfersPage />} />
             <Route path="t/:id" element={<TransferDetailPage />} />
+            <Route path="code" element={<CodeProjectsPage />} />
+            <Route path="code/rejoindre/:token" element={<CodeJoinPage />} />
+            <Route path="code/:id" element={<CodeProjectPage />} />
             <Route path="compte" element={<AccountPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

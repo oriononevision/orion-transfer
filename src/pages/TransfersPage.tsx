@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Folder, Inbox, Upload, X } from 'lucide-react'
+import { Code2, Folder, Inbox, Upload, X } from 'lucide-react'
 import { fetchInbox, fetchOutbox, fetchUsage, subscribeToChanges, type InboxItem, type OutboxItem } from '../api/transfers'
 import Header from '../components/Header'
 import SendPanel from '../components/SendPanel'
@@ -12,8 +12,10 @@ import { fromDataTransfer, fromInput, type Collected } from '../lib/readDrop'
 import { inboxStatus, outboxStatus } from '../lib/status'
 
 type Tab = 'inbox' | 'outbox'
+type ShareMode = 'choose' | 'files' | 'folders'
 
 export default function TransfersPage() {
+  const [mode, setMode] = useState<ShareMode>('choose')
   const [tab, setTab] = useState<Tab>('inbox')
   const [inbox, setInbox] = useState<InboxItem[] | null>(null)
   const [outbox, setOutbox] = useState<OutboxItem[] | null>(null)
@@ -31,7 +33,6 @@ export default function TransfersPage() {
     setLoadError(false)
     try {
       const [i, o, u] = await Promise.all([fetchInbox(), fetchOutbox(), fetchUsage()])
-      // Nouveau transfert reçu depuis le dernier chargement : on le signale.
       if (seenIds.current) {
         const fresh = i.find((item) => !seenIds.current!.has(item.id) && item.status === 'ready')
         if (fresh) setArrival(fresh)
@@ -49,8 +50,6 @@ export default function TransfersPage() {
     void load()
   }, [load])
 
-  // Réception en direct, avec deux filets de sécurité : rechargement quand
-  // l'onglet redevient actif, et toutes les 30 secondes s'il est visible.
   useEffect(() => {
     let timer: number | undefined
     const refresh = () => {
@@ -73,21 +72,27 @@ export default function TransfersPage() {
     }
   }, [load])
 
-  // Le nombre de nouveaux transferts apparaît aussi dans le titre de l'onglet.
   const unseen = inbox?.filter((i) => i.status === 'ready' && !i.first_downloaded_at).length ?? 0
   useEffect(() => {
     document.title = unseen > 0 ? `(${unseen}) ${t('app.name')}` : t('app.name')
   }, [unseen])
 
-  // React ne connaît pas l'attribut de sélection de dossier.
   useEffect(() => {
     folderInput.current?.setAttribute('webkitdirectory', '')
-  }, [])
+  }, [mode])
+
+  useEffect(() => {
+    if (mode === 'files') filesInput.current?.focus()
+    if (mode === 'folders') {
+      // Ouvre le sélecteur dossier dès l’entrée dans le mode.
+      window.setTimeout(() => folderInput.current?.click(), 0)
+    }
+  }, [mode])
 
   const onDrop = async (event: DragEvent) => {
     event.preventDefault()
     setDragging(false)
-    if (pending) return
+    if (pending || mode === 'choose') return
     setPending(await fromDataTransfer(event.dataTransfer))
   }
 
@@ -98,7 +103,7 @@ export default function TransfersPage() {
     <div
       className="page"
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('Files')) {
+        if (mode !== 'choose' && e.dataTransfer.types.includes('Files')) {
           e.preventDefault()
           setDragging(true)
         }
@@ -116,53 +121,91 @@ export default function TransfersPage() {
           <p className="muted lead">{t('home.subtitle')}</p>
         </div>
 
-        <section className={`dropzone${dragging ? ' is-dragging' : ''}`} aria-labelledby="drop-title">
-          <div className="dropzone__icon" aria-hidden="true">
-            <Upload size={26} />
-          </div>
-          <div className="stack-4">
-            <p id="drop-title" className="dropzone__title">
-              {dragging ? t('drop.active') : t('drop.title')}
+        {mode === 'choose' ? (
+          <section className="mode-grid" aria-label={t('home.chooseLabel')}>
+            <button type="button" className="mode-card" onClick={() => setMode('files')}>
+              <span className="mode-card__icon" aria-hidden="true">
+                <Upload size={26} />
+              </span>
+              <span className="mode-card__title">{t('home.modeFiles')}</span>
+              <span className="mode-card__text">{t('home.modeFilesHint')}</span>
+            </button>
+            <button type="button" className="mode-card" onClick={() => setMode('folders')}>
+              <span className="mode-card__icon" aria-hidden="true">
+                <Folder size={26} />
+              </span>
+              <span className="mode-card__title">{t('home.modeFolders')}</span>
+              <span className="mode-card__text">{t('home.modeFoldersHint')}</span>
+            </button>
+            <Link to="/code" className="mode-card">
+              <span className="mode-card__icon" aria-hidden="true">
+                <Code2 size={26} />
+              </span>
+              <span className="mode-card__title">{t('home.modeCode')}</span>
+              <span className="mode-card__text">{t('home.modeCodeHint')}</span>
+            </Link>
+          </section>
+        ) : (
+          <section className={`dropzone${dragging ? ' is-dragging' : ''}`} aria-labelledby="drop-title">
+            <div className="row-wrap between dropzone__top">
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setMode('choose')}>
+                {t('home.changeMode')}
+              </button>
+            </div>
+            <div className="dropzone__icon" aria-hidden="true">
+              {mode === 'folders' ? <Folder size={26} /> : <Upload size={26} />}
+            </div>
+            <div className="stack-4">
+              <p id="drop-title" className="dropzone__title">
+                {dragging
+                  ? t('drop.active')
+                  : mode === 'folders'
+                    ? t('drop.folderTitle')
+                    : t('drop.title')}
+              </p>
+              <p className="muted">{mode === 'folders' ? t('drop.folderSubtitle') : t('drop.subtitle')}</p>
+            </div>
+            <div className="row-wrap center">
+              {mode === 'files' ? (
+                <button type="button" className="btn btn--primary" onClick={() => filesInput.current?.click()}>
+                  {t('drop.pickFiles')}
+                </button>
+              ) : (
+                <button type="button" className="btn btn--primary" onClick={() => folderInput.current?.click()}>
+                  <Folder size={18} aria-hidden="true" />
+                  {t('drop.pickFolder')}
+                </button>
+              )}
+            </div>
+            <p className="muted small">
+              {t('drop.limits', {
+                file: formatBytes(LIMITS.maxFileBytes),
+                count: LIMITS.maxFiles,
+                total: formatBytes(LIMITS.maxTransferBytes),
+                days: LIMITS.defaultExpiryDays,
+              })}
             </p>
-            <p className="muted">{t('drop.subtitle')}</p>
-          </div>
-          <div className="row-wrap center">
-            <button type="button" className="btn btn--primary" onClick={() => filesInput.current?.click()}>
-              {t('drop.pickFiles')}
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={() => folderInput.current?.click()}>
-              <Folder size={18} aria-hidden="true" />
-              {t('drop.pickFolder')}
-            </button>
-          </div>
-          <p className="muted small">
-            {t('drop.limits', {
-              file: formatBytes(LIMITS.maxFileBytes),
-              count: LIMITS.maxFiles,
-              total: formatBytes(LIMITS.maxTransferBytes),
-              days: LIMITS.defaultExpiryDays,
-            })}
-          </p>
-          <input
-            ref={filesInput}
-            type="file"
-            multiple
-            hidden
-            onChange={(e) => {
-              setPending(fromInput(e.target.files))
-              e.target.value = ''
-            }}
-          />
-          <input
-            ref={folderInput}
-            type="file"
-            hidden
-            onChange={(e) => {
-              setPending(fromInput(e.target.files))
-              e.target.value = ''
-            }}
-          />
-        </section>
+            <input
+              ref={filesInput}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                setPending(fromInput(e.target.files))
+                e.target.value = ''
+              }}
+            />
+            <input
+              ref={folderInput}
+              type="file"
+              hidden
+              onChange={(e) => {
+                setPending(fromInput(e.target.files))
+                e.target.value = ''
+              }}
+            />
+          </section>
+        )}
 
         <section className="stack-16" aria-label="Historique">
           <div className="tabs" role="tablist">
