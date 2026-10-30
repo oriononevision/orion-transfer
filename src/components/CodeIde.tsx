@@ -28,6 +28,7 @@ import {
   type FileMap,
   type TreeNode,
 } from '../lib/codeWorkspace'
+import { isDesktopApp, openNativeFolderWorkspace } from '../lib/desktop'
 import { t } from '../i18n'
 
 type Props = {
@@ -255,9 +256,7 @@ export default function CodeIde({ files, onChange, disabled, projectName }: Prop
     openFile(path)
   }
 
-  const onOpenFolder = async (list: FileList | null) => {
-    if (!list || list.length === 0) return
-    const { files: loaded, skipped } = await filesFromFolderInput(list)
+  const applyLoadedFolder = (loaded: FileMap, skipped: number) => {
     if (Object.keys(loaded).length === 0) {
       setNote(t('code.folderEmpty'))
       return
@@ -271,6 +270,23 @@ export default function CodeIde({ files, onChange, disabled, projectName }: Prop
         ? t('code.folderLoadedSkipped', { count: Object.keys(loaded).length, skipped })
         : t('code.folderLoaded', { count: Object.keys(loaded).length }),
     )
+  }
+
+  const pickFolder = async () => {
+    if (isDesktopApp()) {
+      const result = await openNativeFolderWorkspace()
+      if (!result) return
+      applyLoadedFolder(result.files, result.skipped)
+      if (result.truncated) setNote(t('code.folderTruncated', { count: Object.keys(result.files).length }))
+      return
+    }
+    folderInput.current?.click()
+  }
+
+  const onOpenFolder = async (list: FileList | null) => {
+    if (!list || list.length === 0) return
+    const { files: loaded, skipped } = await filesFromFolderInput(list)
+    applyLoadedFolder(loaded, skipped)
   }
 
   const onAddFiles = async (list: FileList | null) => {
@@ -373,7 +389,7 @@ export default function CodeIde({ files, onChange, disabled, projectName }: Prop
                 <button
                   type="button"
                   className="icon-btn"
-                  onClick={() => folderInput.current?.click()}
+                  onClick={() => void pickFolder()}
                   disabled={disabled}
                   title={t('code.openFolder')}
                   aria-label={t('code.openFolder')}
@@ -410,7 +426,7 @@ export default function CodeIde({ files, onChange, disabled, projectName }: Prop
               )}
             </div>
             <div className="ide-sidebar__foot">
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => folderInput.current?.click()} disabled={disabled}>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void pickFolder()} disabled={disabled}>
                 <FolderOpen size={16} aria-hidden="true" />
                 {t('code.openFolder')}
               </button>
@@ -475,7 +491,7 @@ export default function CodeIde({ files, onChange, disabled, projectName }: Prop
             <div className="ide-empty">
               <p className="empty__title">{t('code.noFileOpen')}</p>
               <p className="muted">{t('code.noFileOpenHint')}</p>
-              <button type="button" className="btn btn--primary" onClick={() => folderInput.current?.click()} disabled={disabled}>
+              <button type="button" className="btn btn--primary" onClick={() => void pickFolder()} disabled={disabled}>
                 <FolderOpen size={18} aria-hidden="true" />
                 {t('code.openFolder')}
               </button>

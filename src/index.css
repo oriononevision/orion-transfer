@@ -1222,3 +1222,11 @@ body.ide-fullscreen-lock { overflow: hidden; }
   .ide-sidebar { width: 100% !important; max-height: 220px; border-right: 0; border-bottom: 1px solid #232838; }
   .ide.is-fullscreen .ide-sidebar { max-height: 30vh; }
 }
+.mode-card--muted { opacity: 0.92; }
+.welcome-list {
+  margin: 0 0 1.5rem;
+  padding-left: 1.2rem;
+  color: rgba(244, 247, 250, 0.72);
+  line-height: 1.7;
+}
+.welcome-features { margin-top: 8px; }

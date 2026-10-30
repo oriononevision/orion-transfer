@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Code2, Folder, Inbox, Upload, X } from 'lucide-react'
+import { Code2, Folder, Inbox, Monitor, Upload, X } from 'lucide-react'
 import { fetchInbox, fetchOutbox, fetchUsage, subscribeToChanges, type InboxItem, type OutboxItem } from '../api/transfers'
 import Header from '../components/Header'
 import SendPanel from '../components/SendPanel'
 import StatusPill from '../components/StatusPill'
 import { formatRelativeDay, t } from '../i18n'
 import { initials } from '../lib/auth'
+import { isDesktopApp } from '../lib/desktop'
 import { formatBytes, LIMITS } from '../lib/fileRules'
 import { fromDataTransfer, fromInput, type Collected } from '../lib/readDrop'
 import { inboxStatus, outboxStatus } from '../lib/status'
@@ -98,6 +99,7 @@ export default function TransfersPage() {
 
   const newCount = unseen
   const rows = tab === 'inbox' ? inbox : outbox
+  const desktop = isDesktopApp()
 
   return (
     <div
@@ -137,13 +139,28 @@ export default function TransfersPage() {
               <span className="mode-card__title">{t('home.modeFolders')}</span>
               <span className="mode-card__text">{t('home.modeFoldersHint')}</span>
             </button>
-            <Link to="/code" className="mode-card">
-              <span className="mode-card__icon" aria-hidden="true">
-                <Code2 size={26} />
-              </span>
-              <span className="mode-card__title">{t('home.modeCode')}</span>
-              <span className="mode-card__text">{t('home.modeCodeHint')}</span>
-            </Link>
+            {desktop ? (
+              <Link to="/code" className="mode-card">
+                <span className="mode-card__icon" aria-hidden="true">
+                  <Code2 size={26} />
+                </span>
+                <span className="mode-card__title">{t('home.modeCode')}</span>
+                <span className="mode-card__text">{t('home.modeCodeHint')}</span>
+              </Link>
+            ) : (
+              <a
+                className="mode-card mode-card--muted"
+                href="https://orion-site-lake.vercel.app/logiciels"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="mode-card__icon" aria-hidden="true">
+                  <Monitor size={26} />
+                </span>
+                <span className="mode-card__title">{t('home.modeCodeDesktop')}</span>
+                <span className="mode-card__text">{t('home.modeCodeDesktopHint')}</span>
+              </a>
+            )}
           </section>
         ) : (
           <section className={`dropzone${dragging ? ' is-dragging' : ''}`} aria-labelledby="drop-title">
