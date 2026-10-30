@@ -1230,3 +1230,60 @@ body.ide-fullscreen-lock { overflow: hidden; }
   line-height: 1.7;
 }
 .welcome-features { margin-top: 8px; }
+/* Création projet code — sobre, distinct de l’onboarding présentation ----- */
+.project-setup__intro { display: flex; flex-direction: column; gap: 8px; }
+.project-setup__badge {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.04em; color: var(--accent-text);
+  background: var(--accent-soft); border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.project-setup__steps {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+}
+.project-setup__steps li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-muted);
+}
+.project-setup__steps li.is-current { color: var(--text); font-weight: 600; }
+.project-setup__steps li.is-done { color: var(--accent-text); }
+.project-setup__dot {
+  width: 22px; height: 22px; border-radius: 999px; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+}
+.project-setup__steps li.is-current .project-setup__dot,
+.project-setup__steps li.is-done .project-setup__dot {
+  background: var(--accent-soft); border-color: rgba(245, 158, 11, 0.45); color: var(--accent);
+}
+.project-setup__card {
+  padding: 22px 22px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+.project-setup__cover {
+  width: 100%; aspect-ratio: 16 / 7; border-radius: var(--radius);
+  border: 1px dashed rgba(245, 158, 11, 0.35); overflow: hidden;
+  background: rgba(255,255,255,0.02); cursor: pointer; padding: 0; color: inherit;
+}
+.project-setup__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.project-setup__cover-empty {
+  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  color: var(--text-muted);
+}
+.project-setup__ide-grid { display: flex; flex-direction: column; gap: 8px; }
+.project-setup__ide {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: rgba(255,255,255,0.02); cursor: pointer;
+}
+.project-setup__ide.is-on {
+  border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.07);
+}
+.project-setup__ide input { margin-top: 3px; }
+.project-setup__ide span { display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 640px) {
+  .project-setup__steps { grid-template-columns: 1fr 1fr; }
+}
