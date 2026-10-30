@@ -105,14 +105,32 @@ export function safeNextPath(next: string | null | undefined): string {
  * que CORE : jetons dans le fragment `#`, effacés aussitôt de l'adresse).
  */
 export async function acceptHandoffFromHash(): Promise<boolean> {
-  const raw = window.location.hash.replace(/^#/, '')
+  return applyHandoffParams(window.location.hash.replace(/^#/, ''), true)
+}
+
+/** Applique un handoff depuis une URL complète (retour Google desktop). */
+export async function acceptHandoffFromUrl(callbackUrl: string): Promise<boolean> {
+  try {
+    const u = new URL(callbackUrl)
+    const hash = u.hash.replace(/^#/, '')
+    if (hash && (await applyHandoffParams(hash, false))) return true
+    const query = u.search.replace(/^\?/, '')
+    return applyHandoffParams(query, false)
+  } catch {
+    return false
+  }
+}
+
+async function applyHandoffParams(raw: string, clearHash: boolean): Promise<boolean> {
   if (!raw) return false
   const params = new URLSearchParams(raw)
   if (params.get('type') !== 'orion_handoff') return false
 
   const access_token = params.get('access_token')
   const refresh_token = params.get('refresh_token')
-  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  if (clearHash) {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }
   if (!access_token || !refresh_token) return false
 
   const { error } = await supabase.auth.setSession({ access_token, refresh_token })

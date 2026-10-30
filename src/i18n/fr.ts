@@ -9,6 +9,11 @@ export const fr = {
   'nav.signOut': 'Se déconnecter',
   'nav.storage': 'Stockage : {used} sur {max}',
 
+  'desktopAuth.title': 'Transfer Desktop',
+  'desktopAuth.lead': 'Connectez-vous avec Google sur ORION, puis vous reviendrez automatiquement dans le logiciel.',
+  'desktopAuth.google': 'Continuer avec Google',
+  'desktopAuth.redirecting': 'Retour vers le logiciel…',
+  'desktopAuth.badReturn': 'Lien de retour invalide. Relancez la connexion depuis Transfer Desktop.',
   'auth.title': 'Connexion',
   'auth.subtitle': 'Vos transferts, avec le même compte ORION que Core.',
   'auth.signupTitle': 'Créer un compte',

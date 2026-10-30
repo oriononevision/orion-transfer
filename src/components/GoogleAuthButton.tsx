@@ -1,15 +1,20 @@
 import { useState } from 'react'
-import { authErrorMessage, signInWithGoogleIdToken } from '../lib/auth'
+import { acceptHandoffFromUrl, authErrorMessage, signInWithGoogleIdToken } from '../lib/auth'
+import { isDesktopApp, openDesktopExternalAuth } from '../lib/desktop'
 import { requestGoogleCredential } from '../lib/googleId'
+import { TRANSFER_WEB_URL } from '../lib/supabase'
 
 type Props = {
   label?: string
+  /** Force le flux GIS web (page bridge desktop). */
+  forceWeb?: boolean
   onError?: (message: string) => void
   onSuccess?: () => void
 }
 
 export default function GoogleAuthButton({
   label = 'Continuer avec Google',
+  forceWeb = false,
   onError,
   onSuccess,
 }: Props) {
@@ -18,6 +23,20 @@ export default function GoogleAuthButton({
   async function onClick() {
     setLoading(true)
     try {
+      if (isDesktopApp() && !forceWeb) {
+        const returnUrl = 'http://127.0.0.1:5176/auth/callback'
+        const bridge = new URL('/auth/desktop', TRANSFER_WEB_URL)
+        bridge.searchParams.set('return', returnUrl)
+        const result = await openDesktopExternalAuth(bridge.toString())
+        if (!result.ok) {
+          throw new Error(result.cancelled ? 'Connexion Google annulée' : result.error || 'Échec connexion')
+        }
+        const ok = await acceptHandoffFromUrl(result.callbackUrl)
+        if (!ok) throw new Error('Session Google non reçue. Réessayez.')
+        onSuccess?.()
+        return
+      }
+
       const { credential, nonce } = await requestGoogleCredential()
       await signInWithGoogleIdToken(credential, nonce)
       onSuccess?.()

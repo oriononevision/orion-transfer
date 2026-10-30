@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { t } from './i18n'
 import AccountPage from './pages/AccountPage'
 import AuthCallbackPage from './pages/AuthCallbackPage'
+import DesktopAuthPage from './pages/DesktopAuthPage'
 import CodeJoinPage from './pages/CodeJoinPage'
 import CodeOnboardingPage from './pages/CodeOnboardingPage'
 import CodeProjectPage from './pages/CodeProjectPage'
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="inscription" element={<LoginPage />} />
           </Route>
           <Route path="auth/callback" element={<AuthCallbackPage />} />
+          <Route path="auth/desktop" element={<DesktopAuthPage />} />
           <Route element={<RequireAuth />}>
             <Route index element={<TransfersPage />} />
             <Route path="t/:id" element={<TransferDetailPage />} />

@@ -28,6 +28,11 @@ export const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ||
   'https://orion-site-lake.vercel.app'
 
+/** Origine web Transfer (Google OAuth / bridge desktop). */
+export const TRANSFER_WEB_URL =
+  (import.meta.env.VITE_TRANSFER_WEB_URL as string | undefined)?.replace(/\/$/, '') ||
+  'https://orion-transfer.vercel.app'
+
 /** Même Client ID Google (GIS) que ORION Core / le site — auth Supabase `signInWithIdToken`. */
 export const GOOGLE_CLIENT_ID =
   (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() || ''
